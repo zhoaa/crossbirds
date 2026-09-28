@@ -1,0 +1,86 @@
+{
+  "title": "Block types",
+  "date": "2026-09-19",
+  "blocks": [
+    {
+      "type": "text",
+      "md": "A post is a list of typed blocks, not one blob of markdown. This one exists to show what the renderer currently understands. Delete it whenever.\n\nThis is a **text** block: plain markdown, so *emphasis*, [links](https://pyodide.org), lists and `inline code` all work."
+    },
+    {
+      "type": "code",
+      "language": "json",
+      "code": "{ \"type\": \"text\", \"md\": \"markdown goes here\" }"
+    },
+    {
+      "type": "text",
+      "md": "A **code** block takes a `language` and renders statically. In phase 2, `\"language\": \"python\"` with `\"runnable\": true` grows a Run button and executes in the browser via Pyodide."
+    },
+    {
+      "type": "gallery",
+      "caption": "A gallery block: a responsive grid, click any image to enlarge.",
+      "images": [
+        {
+          "src": "img/birdie.gif",
+          "alt": "Flying bird"
+        },
+        {
+          "src": "img/deaderbird.png",
+          "alt": "Still bird"
+        },
+        {
+          "src": "img/glitchdead.gif",
+          "alt": "Glitched bird"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "md": "A **python** block runs in the reader's own browser through Pyodide \u2014 no server, nothing sent anywhere. The code is editable, so people can change it and re-run. `Ctrl`/`Cmd` + `Enter` also runs it. Python itself downloads once per visit, so the first Run is slow and the rest are instant."
+    },
+    {
+      "type": "python",
+      "packages": [
+        "numpy",
+        "matplotlib"
+      ],
+      "autorun": false,
+      "code": "import numpy as np\nimport matplotlib.pyplot as plt\n\n# A misaligned pair of channels, and the score as we shift one back.\nrng = np.random.default_rng(0)\nreference = rng.random((64, 64))\nchannel = np.roll(reference, 7, axis=1)\n\nshifts = range(-15, 16)\nscores = [np.sum((np.roll(channel, s, axis=1) - reference) ** 2) for s in shifts]\n\nbest = min(zip(scores, shifts))[1]\nprint(f\"best shift: {best}px\")\n\nplt.figure(figsize=(6, 2.6))\nplt.plot(list(shifts), scores, color=\"#2f6f8f\")\nplt.axvline(best, color=\"#c0483c\", ls=\"--\", lw=1)\nplt.xlabel(\"horizontal shift (px)\")\nplt.ylabel(\"sum of squared differences\")\nplt.tight_layout()"
+    },
+    {
+      "type": "slideshow",
+      "caption": "A slideshow block: arrow keys or the dots.",
+      "slides": [
+        {
+          "src": "img/flapMOSHED.gif",
+          "alt": "Datamoshed flap",
+          "caption": "Datamoshed flap cycle"
+        },
+        {
+          "src": "img/deadMOSHED.gif",
+          "alt": "Datamoshed still",
+          "caption": "The same frames, compression forced"
+        }
+      ]
+    },
+    {
+      "type": "quote",
+      "text": "Blocks render in order. Adding a new kind means writing one function in the registry.",
+      "cite": null
+    },
+    {
+      "type": "image",
+      "src": "img/nice_cloud.svg",
+      "alt": "Cloud",
+      "caption": "A single image block, with an optional caption."
+    },
+    {
+      "type": "text",
+      "md": "A **math** block is a display equation. Inline math works inside any text block too, with `$...$` for inline and `$$...$$` for display. Markdown will not mangle it, and a `$` inside code or a fence is left alone."
+    },
+    {
+      "type": "math",
+      "tex": "\\underset{dx,\\, dy}{\\arg\\min} \\sum_{i,j} \\left( C(i+dy,\\, j+dx) - R(i,j) \\right)^2",
+      "caption": "Alignment as a search over shifts."
+    }
+  ]
+}

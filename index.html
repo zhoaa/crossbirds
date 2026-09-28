@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Notes on computer vision, birds, and whatever else.">
+  <title>Crossbirds — Aaron Zhou</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+  <script src="render.js"></script>
+</head>
+<body>
+  <img class="cloud cloud-left" src="img/nice_cloud.svg" alt="">
+  <img class="cloud cloud-right" src="img/nice_cloud.svg" alt="">
+
+  <main>
+    <nav>
+      <a href="https://zhoaa.github.io/">Aaron Zhou</a>
+      <a href="#/">Crossbirds</a>
+    </nav>
+    <div id="view"></div>
+  </main>
+
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <img id="lightbox-img" src="" alt="">
+  </div>
+
+<script>
+/* ===================================================================
+   Reader only. Posts are static JSON under blog/ — there is no admin
+   code, no password and no token on this page by design. Authoring
+   happens locally via tools/edit.py and ships through git.
+   Block rendering lives in render.js, shared with the editor.
+   =================================================================== */
+
+const { renderBlocks, hydrate, esc, prettyDate } = window.FieldNotes;
+
+const INDEX_URL = 'content/index.json';
+const POST_URL  = slug => `content/posts/${slug}.json`;
+const view = document.getElementById('view');
+
+async function getJSON(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${url} → ${r.status}`);
+  return r.json();
+}
+
+async function showIndex() {
+  document.title = 'Crossbirds — Aaron Zhou';
+  view.innerHTML = `
+    <header class="masthead">
+      <h1>Cross<br><em>birds</em></h1>
+      <p class="intro">Computer vision, birds, and whatever else is holding my attention.</p>
+    </header>
+    <ul class="post-list"><li class="muted">Loading…</li></ul>`;
+
+  try {
+    const { posts } = await getJSON(INDEX_URL);
+    const list = view.querySelector('.post-list');
+    if (!posts.length) { list.innerHTML = '<li class="muted">Nothing here yet.</li>'; return; }
+    list.innerHTML = posts.map(p => `
+      <li class="card">
+        <a href="#/post/${encodeURIComponent(p.slug)}">
+          ${p.cover ? `<img class="card-cover" src="${esc(p.cover)}" alt="" loading="lazy">` : ''}
+          <time>${esc(prettyDate(p.date))}</time>
+          <h2>${esc(p.title)}</h2>
+          ${p.summary ? `<p>${esc(p.summary)}</p>` : ''}
+          <span class="more">Read</span>
+        </a>
+      </li>`).join('');
+  } catch (e) {
+    view.querySelector('.post-list').innerHTML =
+      `<li class="muted">Could not load posts. ${esc(e.message)}</li>`;
+  }
+}
+
+async function showPost(slug) {
+  view.innerHTML = '<p class="muted pad">Loading…</p>';
+  try {
+    const post = await getJSON(POST_URL(slug));
+    document.title = `${post.title} — Crossbirds`;
+    view.innerHTML = `
+      <article class="post">
+        <a class="back" href="#/">All posts</a>
+        <header class="post-head">
+          <time>${esc(prettyDate(post.date))}</time>
+          <h1>${esc(post.title)}</h1>
+        </header>
+        ${renderBlocks(post.blocks)}
+        <a class="back bottom" href="#/">All posts</a>
+      </article>`;
+    hydrate(view, { onImage: openLightbox });
+  } catch {
+    document.title = 'Not found — Crossbirds';
+    view.innerHTML = `
+      <div class="pad">
+        <h1 class="notfound">Nothing here</h1>
+        <p class="muted">No post called “${esc(slug)}”.</p>
+        <a class="back" href="#/">All posts</a>
+      </div>`;
+  }
+}
+
+const lightbox = document.getElementById('lightbox');
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  lightbox.classList.remove('hidden');
+}
+lightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') lightbox.classList.add('hidden');
+});
+
+function route() {
+  const m = location.hash.match(/^#\/post\/(.+)$/);
+  window.scrollTo(0, 0);
+  if (m) showPost(decodeURIComponent(m[1]));
+  else showIndex();
+}
+
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "title": "Images of the Russian Empire",
+  "date": "2026-09-28",
+  "blocks": [
+    {
+      "type": "text",
+      "md": "# **PART 1**"
+    },
+    {
+      "type": "text",
+      "md": "# **PART 2**\n"
+    },
+    {
+      "type": "image",
+      "src": "",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "## Single Scale Alignment\n"
+    },
+    {
+      "type": "text",
+      "md": "Our first step is to choose a good alignment metric in order to be able to quantize our potential alignments. For this assignment, I chose to use Normalized Cross Correlation, which utilizes the dot product of the "
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def ncc(a, b):\n    a = a.astype(np.float32)\n    b = b.astype(np.float32)\n\n    a -= a.mean()\n    b -= b.mean()\n\n    return np.sum(a * b) / np.sqrt(np.sum(a * a) * np.sum(b * b)"
+    }
+  ]
+}

@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor — Crossbirds</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/tools/editor.css">
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand">
+    <span class="mark"></span>
+    <div><strong>Crossbirds</strong><small>local editor</small></div>
+  </div>
+  <button id="new-post" class="btn block"><span class="ico" data-i="plus"></span>New post</button>
+  <ul id="post-list" class="side-list"></ul>
+  <div class="side-foot">
+    <div class="branch-chip" id="branch-chip"><span class="ico" data-i="branch"></span><span>—</span></div>
+    <p>Files save to <code>blog/</code>. Publish commits and pushes.</p>
+  </div>
+</aside>
+
+<section id="editor-pane">
+  <div id="empty" class="empty">
+    <h1>Nothing open</h1>
+    <p>Pick a post on the left, or start a new one.</p>
+  </div>
+
+  <div id="workspace" class="hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <span id="dirty" class="dot" title="Unsaved changes"></span>
+        <span id="slug-label" class="path"></span>
+      </div>
+      <div class="topbar-right">
+        <button id="toggle-preview" class="btn icon-only" title="Toggle preview"><span class="ico" data-i="eye"></span></button>
+        <button id="delete" class="btn subtle"><span class="ico" data-i="trash"></span></button>
+        <button id="publish-open" class="btn"><span class="ico" data-i="branch"></span>Publish</button>
+        <button id="save" class="btn solid"><span class="ico" data-i="check"></span>Save</button>
+      </div>
+    </header>
+
+    <div class="scroll">
+      <div class="meta-card">
+        <label class="wide">Title<input type="text" id="m-title" placeholder="Post title"></label>
+        <label class="wide">Summary<input type="text" id="m-summary" placeholder="One line, shown on the index"></label>
+        <label>Slug<input type="text" id="m-slug" placeholder="url-slug"></label>
+        <label>Date<input type="date" id="m-date"></label>
+      </div>
+
+      <div id="blocks" class="blocks"></div>
+
+      <div class="add-bar">
+        <span class="add-label">Add block</span>
+        <div id="add-buttons"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="preview-pane">
+  <header class="preview-bar">
+    <span>Preview</span>
+    <small id="preview-note">live</small>
+  </header>
+  <iframe id="preview-frame" src="/tools/preview.html" title="Live preview"></iframe>
+</section>
+
+<div id="publish-modal" class="modal hidden">
+  <div class="sheet">
+    <header class="sheet-head">
+      <h2><span class="ico" data-i="branch"></span>Publish</h2>
+      <button class="btn icon-only subtle" id="publish-close"><span class="ico" data-i="x"></span></button>
+    </header>
+    <div id="publish-body" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* ===================================================================
+   Local-only editor. Talks to tools/edit.py over loopback; that
+   server owns the filesystem and git. Nothing here ships to the
+   live site. Block rendering is shared via render.js, driven
+   through the preview iframe.
+   =================================================================== */
+
+/* ---------- icons ---------- */
+
+const ICONS = {
+  plus:   '<path d="M8 3.2v9.6M3.2 8h9.6"/>',
+  trash:  '<path d="M2.8 4.2h10.4M6.2 4.2V2.8h3.6v1.4M4.4 4.2l.5 9h6.2l.5-9"/>',
+  up:     '<path d="M8 12.6V3.8M4.4 7.4L8 3.8l3.6 3.6"/>',
+  down:   '<path d="M8 3.4v8.8M4.4 8.6L8 12.2l3.6-3.6"/>',
+  copy:   '<path d="M5.6 5.6h7.2v7.2H5.6zM3.2 10.4V3.2h7.2"/>',
+  chev:   '<path d="M4.4 6.2L8 9.8l3.6-3.6"/>',
+  eye:    '<path d="M1.6 8S4 3.6 8 3.6 14.4 8 14.4 8 12 12.4 8 12.4 1.6 8 1.6 8z"/><circle cx="8" cy="8" r="1.8"/>',
+  check:  '<path d="M3 8.4l3.2 3.2L13 4.8"/>',
+  x:      '<path d="M4 4l8 8M12 4l-8 8"/>',
+  branch: '<circle cx="4.4" cy="3.6" r="1.6"/><circle cx="4.4" cy="12.4" r="1.6"/><circle cx="11.6" cy="6" r="1.6"/><path d="M4.4 5.2v5.6M11.6 7.6c0 2-1.4 2.8-3.2 3.2"/>',
+  image:  '<rect x="2.4" y="3.2" width="11.2" height="9.6" rx="1.4"/><circle cx="6" cy="6.4" r="1"/><path d="M2.4 10.8l3.2-2.4 3.2 2.4 2.4-1.6 2.4 1.6"/>'
+};
+const icon = n => `<svg class="i" width="15" height="15" viewBox="0 0 16 16" fill="none"
+  stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+  stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
+const paintIcons = root =>
+  root.querySelectorAll('.ico[data-i]').forEach(el => { el.innerHTML = icon(el.dataset.i); });
+
+/* ---------- block schema ----------
+   To support a new block type: add an entry here plus a renderer in
+   render.js. Nothing else needs to change.                       */
+
+const SCHEMA = {
+  text:      { label:'Text',      hint:'Markdown prose',
+               fields:[ { k:'md', t:'markdown', label:'Markdown' } ] },
+  code:      { label:'Code',      hint:'Static, highlighted',
+               fields:[ { k:'language', t:'text', label:'Language', placeholder:'python' },
+                        { k:'code', t:'code', label:'Code' } ] },
+  python:    { label:'Python',    hint:'Runs in the reader’s browser',
+               fields:[ { k:'packages', t:'list', label:'Packages', placeholder:'numpy, matplotlib' },
+                        { k:'autorun', t:'bool', label:'Run automatically on page load' },
+                        { k:'code', t:'code', label:'Code' } ] },
+  image:     { label:'Image',     hint:'One figure',
+               fields:[ { k:'src', t:'image', label:'File' },
+                        { k:'alt', t:'text', label:'Alt text' },
+                        { k:'caption', t:'text', label:'Caption' } ] },
+  gallery:   { label:'Gallery',   hint:'Grid, click to enlarge',
+               fields:[ { k:'images', t:'items', label:'Images',
+                          item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'} ] },
+                        { k:'caption', t:'text', label:'Caption' } ] },
+  slideshow: { label:'Slideshow', hint:'Arrows, dots, keyboard',
+               fields:[ { k:'slides', t:'items', label:'Slides',
+                          item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'},
+                                 {k:'caption',t:'text',placeholder:'Caption'} ] },
+                        { k:'caption', t:'text', label:'Fallback caption' } ] },
+  math:      { label:'Math',      hint:'Display equation, LaTeX',
+               fields:[ { k:'tex', t:'code', label:'LaTeX', placeholder:'E = mc^2' },
+                        { k:'caption', t:'text', label:'Caption' } ] },
+  quote:     { label:'Quote',     hint:'Pulled-out line',
+               fields:[ { k:'text', t:'textarea', label:'Quote' },
+                        { k:'cite', t:'text', label:'Attribution' } ] }
+};
+
+const BLANK = {
+  text:      () => ({ type:'text', md:'' }),
+  code:      () => ({ type:'code', language:'python', code:'' }),
+  python:    () => ({ type:'python', packages:[], autorun:false, code:'' }),
+  image:     () => ({ type:'image', src:'', alt:'', caption:'' }),
+  gallery:   () => ({ type:'gallery', images:[], caption:'' }),
+  slideshow: () => ({ type:'slideshow', slides:[], caption:'' }),
+  math:      () => ({ type:'math', tex:'', caption:'' }),
+  quote:     () => ({ type:'quote', text:'', cite:'' })
+};
+
+/* ---------- state ---------- */
+
+let doc = null;
+let original = '';
+let previewReady = false;
+const collapsed = new WeakSet();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const slugify = s => s.toLowerCase().trim()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+
+const isDirty = () => doc && JSON.stringify(doc) !== original;
+const markClean = () => { original = JSON.stringify(doc); paintDirty(); };
+const paintDirty = () => { $('dirty').classList.toggle('on', isDirty()); pushPreview(); };
+
+function toast(msg, bad) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('bad', !!bad);
+  t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+async function api(method, path, body) {
+  const r = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `${method} ${path} → ${r.status}`);
+  return data;
+}
+
+/* ---------- preview ---------- */
+
+let previewTimer;
+function pushPreview() {
+  if (!doc || !previewReady) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    $('preview-frame').contentWindow.postMessage(
+      { kind:'render', title:doc.title, date:doc.date, blocks:doc.blocks }, '*');
+  }, 260);
+}
+addEventListener('message', e => {
+  if (e.data?.kind === 'preview-ready') { previewReady = true; pushPreview(); }
+});
+
+/* ---------- post list ---------- */
+
+async function refreshList(active) {
+  let posts;
+  try {
+    ({ posts } = await api('GET', '/api/index'));
+  } catch {
+    // no local API — opened from the published site, where it can do nothing
+    document.body.innerHTML =
+      '<div class="offline"><h1>Editor is local-only</h1>' +
+      '<p>Run <code>python3 tools/edit.py</code> and open ' +
+      '<code>http://127.0.0.1:4000/edit</code>.</p></div>';
+    return;
+  }
+
+  $('post-list').innerHTML = posts.length ? posts.map(p => `
+    <li><button class="side-item${p.slug === active ? ' on' : ''}" data-slug="${esc(p.slug)}">
+      <span class="t">${esc(p.title)}</span>
+      <span class="d">${esc(p.date)}</span>
+    </button></li>`).join('')
+    : '<li class="side-empty">No posts yet</li>';
+
+  $('post-list').querySelectorAll('.side-item').forEach(b =>
+    b.addEventListener('click', () => openPost(b.dataset.slug)));
+
+  refreshBranch();
+}
+
+async function refreshBranch() {
+  try {
+    const s = await api('GET', '/api/git/status');
+    $('branch-chip').lastElementChild.textContent = s.repo
+      ? s.branch + (s.changed.length ? ` · ${s.changed.length} changed` : '')
+      : 'no git repo';
+  } catch {
+    $('branch-chip').lastElementChild.textContent = 'not a git repo';
+  }
+}
+
+async function openPost(slug) {
+  if (!confirmDiscard()) return;
+  const post = await api('GET', `/api/post/${slug}`);
+  const { posts } = await api('GET', '/api/index');
+  const meta = posts.find(p => p.slug === slug) || {};
+  doc = {
+    slug,
+    title: post.title || '',
+    date: post.date || new Date().toISOString().slice(0, 10),
+    summary: meta.summary || '',
+    cover: meta.cover || null,
+    blocks: post.blocks || []
+  };
+  paintAll();
+  refreshList(slug);
+}
+
+function newPost() {
+  if (!confirmDiscard()) return;
+  doc = { slug:'', title:'', date:new Date().toISOString().slice(0,10),
+          summary:'', cover:null, blocks:[] };
+  paintAll();
+  $('m-title').focus();
+}
+
+const confirmDiscard = () => !isDirty() || confirm('Discard unsaved changes?');
+
+/* ---------- painting ---------- */
+
+function paintAll() {
+  $('empty').classList.add('hidden');
+  $('workspace').classList.remove('hidden');
+  $('m-title').value = doc.title;
+  $('m-slug').value = doc.slug;
+  $('m-date').value = doc.date;
+  $('m-summary').value = doc.summary || '';
+  $('slug-label').textContent = doc.slug ? `content/posts/${doc.slug}.json` : 'unsaved';
+  paintBlocks();
+  markClean();
+}
+
+function paintBlocks() {
+  const wrap = $('blocks');
+  if (!doc.blocks.length) {
+    wrap.innerHTML = `<div class="no-blocks">
+      <p>This post is empty.</p><p class="sub">Add a block below to get going.</p></div>`;
+    pushPreview();
+    return;
+  }
+  wrap.innerHTML = doc.blocks.map((b, i) => {
+    const spec = SCHEMA[b.type];
+    const shut = collapsed.has(b);
+    return `
+    <article class="blk${shut ? ' shut' : ''}" data-i="${i}">
+      <div class="blk-head" data-toggle="${i}">
+        <span class="grip" draggable="true" title="Drag to reorder"></span>
+        <span class="chev ico" data-i="chev"></span>
+        <strong>${esc(spec ? spec.label : b.type)}</strong>
+        <span class="blk-peek">${esc(peek(b))}</span>
+        <span class="blk-tools">
+          <button class="ico-btn" data-act="up"   data-i="${i}" title="Move up"><span class="ico" data-i="up"></span></button>
+          <button class="ico-btn" data-act="down" data-i="${i}" title="Move down"><span class="ico" data-i="down"></span></button>
+          <button class="ico-btn" data-act="dup"  data-i="${i}" title="Duplicate"><span class="ico" data-i="copy"></span></button>
+          <button class="ico-btn danger" data-act="del" data-i="${i}" title="Remove"><span class="ico" data-i="trash"></span></button>
+        </span>
+      </div>
+      <div class="blk-body">
+        ${spec ? spec.fields.map(f => field(f, b, i)).join('') : '<p class="warn">Unknown type</p>'}
+      </div>
+    </article>`;
+  }).join('');
+  paintIcons(wrap);
+  wireBlocks();
+  pushPreview();
+}
+
+/* one-line summary shown on a collapsed block */
+function peek(b) {
+  const s = b.md || b.code || b.text || b.caption || b.src || '';
+  const n = (b.images || b.slides || []).length;
+  if (n) return `${n} item${n > 1 ? 's' : ''}`;
+  return s.replace(/\s+/g, ' ').trim().slice(0, 70);
+}
+
+function field(f, b, i) {
+  const label = f.label ? `<span class="fl">${esc(f.label)}</span>` : '';
+  const v = b[f.k];
+
+  switch (f.t) {
+    case 'markdown':
+    case 'textarea':
+      return `<label class="f">${label}
+        <textarea data-i="${i}" data-k="${f.k}" rows="7"
+          placeholder="${esc(f.placeholder)}">${esc(v)}</textarea></label>`;
+
+    case 'code':
+      return `<label class="f">${label}
+        <textarea data-i="${i}" data-k="${f.k}" rows="11" spellcheck="false"
+          class="mono">${esc(v)}</textarea></label>`;
+
+    case 'bool':
+      return `<label class="f check">
+        <input type="checkbox" data-i="${i}" data-k="${f.k}" ${v ? 'checked' : ''}>
+        <span>${esc(f.label)}</span></label>`;
+
+    case 'list':
+      return `<label class="f">${label}
+        <input type="text" data-i="${i}" data-k="${f.k}" data-list="1"
+          value="${esc((v || []).join(', '))}" placeholder="${esc(f.placeholder)}"></label>`;
+
+    case 'image':
+      return `<div class="f">${label}${imageField(v, { i, k:f.k })}</div>`;
+
+    case 'items':
+      return `<div class="f">${label}
+        <div class="items">
+          ${(v || []).map((it, j) => `
+            <div class="item">
+              <span class="item-n">${j + 1}</span>
+              <div class="item-fields">
+                ${f.item.map(sub => sub.t === 'image'
+                  ? imageField(it[sub.k], { i, k:f.k, j, sub:sub.k, slim:true })
+                  : `<input type="text" data-i="${i}" data-k="${f.k}" data-j="${j}" data-sub="${sub.k}"
+                            value="${esc(it[sub.k])}" placeholder="${esc(sub.placeholder)}">`
+                ).join('')}
+              </div>
+              <button class="ico-btn danger" data-act="item-del" data-i="${i}" data-k="${f.k}" data-j="${j}"
+                title="Remove"><span class="ico" data-i="x"></span></button>
+            </div>`).join('')}
+          <button class="btn small ghost" data-act="item-add" data-i="${i}" data-k="${f.k}">
+            <span class="ico" data-i="plus"></span>Add item</button>
+        </div></div>`;
+  }
+  return `<label class="f">${label}
+    <input type="text" data-i="${i}" data-k="${f.k}"
+      value="${esc(v)}" placeholder="${esc(f.placeholder)}"></label>`;
+}
+
+function imageField(v, { i, k, j, sub, slim }) {
+  const d = `data-i="${i}" data-k="${k}"` + (j !== undefined ? ` data-j="${j}" data-sub="${sub}"` : '');
+  return `<div class="img-field${slim ? ' slim' : ''}" ${d}>
+    <div class="img-prev">${v ? `<img src="/${esc(v)}" alt="">` : `<span class="ico" data-i="image"></span>`}</div>
+    <div class="img-ctl">
+      <input type="text" ${d} value="${esc(v)}" placeholder="drop an image, or paste a path">
+      <button class="btn small ghost" data-pick="1">Choose</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- wiring ---------- */
+
+function wireBlocks() {
+  const wrap = $('blocks');
+
+  // collapse / expand
+  wrap.querySelectorAll('[data-toggle]').forEach(head =>
+    head.addEventListener('click', e => {
+      if (e.target.closest('.ico-btn, .grip')) return;
+      const b = doc.blocks[+head.dataset.toggle];
+      collapsed.has(b) ? collapsed.delete(b) : collapsed.add(b);
+      head.closest('.blk').classList.toggle('shut');
+    }));
+
+  // value binding — no re-render, so focus is never stolen
+  wrap.querySelectorAll('input[data-k], textarea[data-k]').forEach(el => {
+    const ev = el.type === 'checkbox' ? 'change' : 'input';
+    el.addEventListener(ev, () => {
+      const { i, k, j, sub } = el.dataset;
+      let val = el.type === 'checkbox' ? el.checked : el.value;
+      if (el.dataset.list) val = val.split(',').map(s => s.trim()).filter(Boolean);
+      if (j !== undefined) doc.blocks[i][k][j][sub] = val;
+      else doc.blocks[i][k] = val;
+      paintDirty();
+    });
+  });
+
+  // structural actions
+  wrap.querySelectorAll('[data-act]').forEach(btn =>
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const { act, i, k, j } = btn.dataset;
+      const n = +i;
+      if (act === 'up' && n > 0) [doc.blocks[n-1], doc.blocks[n]] = [doc.blocks[n], doc.blocks[n-1]];
+      if (act === 'down' && n < doc.blocks.length - 1)
+        [doc.blocks[n+1], doc.blocks[n]] = [doc.blocks[n], doc.blocks[n+1]];
+      if (act === 'dup') doc.blocks.splice(n + 1, 0, structuredClone(doc.blocks[n]));
+      if (act === 'del') {
+        if (peek(doc.blocks[n]) && !confirm('Remove this block?')) return;
+        doc.blocks.splice(n, 1);
+      }
+      if (act === 'item-add') {
+        const spec = SCHEMA[doc.blocks[n].type].fields.find(f => f.k === k);
+        doc.blocks[n][k].push(Object.fromEntries(spec.item.map(s => [s.k, ''])));
+      }
+      if (act === 'item-del') doc.blocks[n][k].splice(+j, 1);
+      paintBlocks(); paintDirty();
+    }));
+
+  // image pick + drop
+  wrap.querySelectorAll('.img-field').forEach(fieldEl => {
+    const input = fieldEl.querySelector('input[type=text]');
+    const set = path => { input.value = path; input.dispatchEvent(new Event('input')); paintBlocks(); };
+    fieldEl.querySelector('[data-pick]').addEventListener('click', e => {
+      e.stopPropagation(); pickFile(set);
+    });
+    fieldEl.addEventListener('dragover', e => { e.preventDefault(); fieldEl.classList.add('over'); });
+    fieldEl.addEventListener('dragleave', () => fieldEl.classList.remove('over'));
+    fieldEl.addEventListener('drop', async e => {
+      e.preventDefault(); e.stopPropagation();
+      fieldEl.classList.remove('over');
+      const file = e.dataTransfer.files[0];
+      if (file) set(await upload(file));
+    });
+  });
+
+  wireDrag();
+}
+
+/* drag a block by its grip; a line shows where it will land */
+function wireDrag() {
+  const wrap = $('blocks');
+  let from = null;
+
+  const clear = () => wrap.querySelectorAll('.blk')
+    .forEach(c => c.classList.remove('drop-above', 'drop-below', 'dragging'));
+
+  wrap.querySelectorAll('.blk').forEach(card => {
+    const grip = card.querySelector('.grip');
+
+    grip.addEventListener('dragstart', e => {
+      from = +card.dataset.i;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(from));
+      e.dataTransfer.setDragImage(card, 20, 20);
+    });
+    grip.addEventListener('dragend', () => { from = null; clear(); });
+
+    card.addEventListener('dragover', e => {
+      if (from === null || +card.dataset.i === from) return;
+      e.preventDefault();
+      const r = card.getBoundingClientRect();
+      const above = e.clientY < r.top + r.height / 2;
+      card.classList.toggle('drop-above', above);
+      card.classList.toggle('drop-below', !above);
+    });
+    card.addEventListener('dragleave', () =>
+      card.classList.remove('drop-above', 'drop-below'));
+
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (from === null) return;
+      const r = card.getBoundingClientRect();
+      const above = e.clientY < r.top + r.height / 2;
+      let to = +card.dataset.i + (above ? 0 : 1);
+      const [moved] = doc.blocks.splice(from, 1);
+      if (from < to) to--;
+      doc.blocks.splice(to, 0, moved);
+      from = null; clear();
+      paintBlocks(); paintDirty();
+    });
+  });
+}
+
+/* ---------- uploads ---------- */
+
+function pickFile(then) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => { if (inp.files[0]) then(await upload(inp.files[0])); };
+  inp.click();
+}
+
+function upload(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const { path } = await api('POST', '/api/upload', { name:file.name, data:reader.result });
+        toast(`Saved ${path}`);
+        resolve(path);
+      } catch (e) { toast(e.message, true); reject(e); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ---------- save / delete ---------- */
+
+async function save() {
+  doc.title = $('m-title').value.trim();
+  doc.date = $('m-date').value;
+  doc.summary = $('m-summary').value.trim();
+  doc.slug = $('m-slug').value.trim() || slugify(doc.title);
+
+  if (!doc.title) return toast('Give it a title', true);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(doc.slug))
+    return toast('Slug must be lowercase words joined by dashes', true);
+
+  try {
+    await api('PUT', `/api/post/${doc.slug}`, doc);
+    $('m-slug').value = doc.slug;
+    $('slug-label').textContent = `content/posts/${doc.slug}.json`;
+    markClean();
+    await refreshList(doc.slug);
+    toast('Saved to disk');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function removePost() {
+  if (!doc.slug) return;
+  if (!confirm(`Delete "${doc.title}" permanently?`)) return;
+  await api('DELETE', `/api/post/${doc.slug}`);
+  doc = null;
+  $('workspace').classList.add('hidden');
+  $('empty').classList.remove('hidden');
+  await refreshList();
+  toast('Deleted');
+}
+
+/* ---------- publish ---------- */
+
+async function openPublish() {
+  $('publish-modal').classList.remove('hidden');
+  const body = $('publish-body');
+  body.innerHTML = '<p class="muted">Reading git status…</p>';
+
+  let s;
+  try { s = await api('GET', '/api/git/status'); }
+  catch (e) { body.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
+
+  if (!s.repo) {
+    body.innerHTML = `<p class="hint">This folder isn't a git repository yet, so there's
+      nothing to publish to. Run <code>git init</code> here and add a remote first.</p>
+      <div class="sheet-actions"><button class="btn ghost" id="pub-cancel">Close</button></div>`;
+    $('pub-cancel').addEventListener('click', closePublish);
+    return;
+  }
+
+  const files = s.changed.length
+    ? `<ul class="filelist">${s.changed.map(f =>
+        `<li><span class="st st-${esc(f.state || 'M')}">${esc(f.state || 'M')}</span>${esc(f.path)}</li>`).join('')}</ul>`
+    : '<p class="muted">No file changes — a merge or push may still be pending.</p>';
+
+  const skipped = s.ignored.length
+    ? `<details class="skipped"><summary>${s.ignored.length} change(s) outside the publish paths — not committed</summary>
+       <ul class="filelist">${s.ignored.map(f => `<li><span class="st">${esc(f.state)}</span>${esc(f.path)}</li>`).join('')}</ul>
+       </details>` : '';
+
+  body.innerHTML = `
+    <div class="pub-route">
+      <span class="branch-chip"><span class="ico" data-i="branch"></span><span>${esc(s.branch)}</span></span>
+      ${s.onMain ? '' : `<span class="arrow">→</span><span class="branch-chip">${esc(s.main)}</span>`}
+      ${s.ahead > 0 ? `<span class="ahead">${s.ahead} unpushed</span>` : ''}
+    </div>
+
+    <label class="f">Commit message
+      <input type="text" id="pub-msg" value="${esc(doc ? `blog: update ${doc.title}` : 'blog: update')}">
+    </label>
+
+    <div class="pub-opts">
+      <label class="f check"><input type="checkbox" id="pub-merge" ${s.onMain ? 'disabled' : 'checked'}>
+        <span>Merge into <code>${esc(s.main)}</code>${s.onMain ? ' (already there)' : ''}</span></label>
+      <label class="f check"><input type="checkbox" id="pub-push" ${s.hasRemote ? 'checked' : 'disabled'}>
+        <span>Push to origin${s.hasRemote ? '' : ' (no remote)'}</span></label>
+    </div>
+
+    <p class="fl">Will commit</p>
+    ${files}
+    ${skipped}
+
+    <div class="sheet-actions">
+      <button class="btn ghost" id="pub-cancel">Cancel</button>
+      <button class="btn solid" id="pub-go"><span class="ico" data-i="branch"></span>Commit &amp; publish</button>
+    </div>
+    <div id="pub-log"></div>`;
+
+  paintIcons(body);
+  $('pub-cancel').addEventListener('click', closePublish);
+  $('pub-go').addEventListener('click', () => runPublish(s));
+}
+
+function closePublish() { $('publish-modal').classList.add('hidden'); }
+
+async function runPublish(status) {
+  const message = $('pub-msg').value.trim();
+  const merge = $('pub-merge').checked;
+  const push = $('pub-push').checked;
+  if (!message) return toast('Commit message required', true);
+
+  const plan = [
+    `commit on ${status.branch}`,
+    merge && !status.onMain ? `merge into ${status.main}` : null,
+    push ? `push ${merge && !status.onMain ? status.main : status.branch} to origin` : null
+  ].filter(Boolean);
+
+  if (!confirm(`This will:\n\n  ${plan.join('\n  ')}\n\nContinue?`)) return;
+
+  const btn = $('pub-go');
+  btn.disabled = true;
+  const log = $('pub-log');
+  log.innerHTML = '<p class="muted">Working…</p>';
+
+  try {
+    const res = await api('POST', '/api/git/publish', { message, merge, push });
+    log.innerHTML = `<ul class="loglist">${res.log.map(l => `<li>${esc(l)}</li>`).join('')}</ul>`;
+    toast('Published');
+    refreshBranch();
+  } catch (e) {
+    log.innerHTML = `<p class="bad">${esc(e.message)}</p>`;
+    toast('Publish failed', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------- boot ---------- */
+
+paintIcons(document);
+
+$('new-post').addEventListener('click', newPost);
+$('save').addEventListener('click', save);
+$('delete').addEventListener('click', removePost);
+$('publish-open').addEventListener('click', openPublish);
+$('publish-close').addEventListener('click', closePublish);
+$('toggle-preview').addEventListener('click', () => {
+  document.body.classList.toggle('no-preview');
+  $('toggle-preview').classList.toggle('off');
+});
+
+['m-title', 'm-slug', 'm-date', 'm-summary'].forEach(id =>
+  $(id).addEventListener('input', () => {
+    if (id === 'm-title' && !doc.slug) $('m-slug').value = slugify($('m-title').value);
+    doc.title = $('m-title').value;
+    doc.date = $('m-date').value;
+    doc.summary = $('m-summary').value;
+    paintDirty();
+  }));
+
+$('add-buttons').innerHTML = Object.entries(SCHEMA).map(([k, v]) =>
+  `<button class="add-chip" data-add="${k}" title="${esc(v.hint)}">
+     <span class="ico" data-i="plus"></span>${v.label}</button>`).join('');
+paintIcons($('add-buttons'));
+$('add-buttons').querySelectorAll('[data-add]').forEach(b =>
+  b.addEventListener('click', () => {
+    if (!doc) newPost();
+    doc.blocks.push(BLANK[b.dataset.add]());
+    paintBlocks(); paintDirty();
+    $('blocks').lastElementChild?.scrollIntoView({ behavior:'smooth', block:'center' });
+  }));
+
+addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (doc) save(); }
+  if (e.key === 'Escape') closePublish();
+});
+addEventListener('beforeunload', e => { if (isDirty()) e.preventDefault(); });
+
+refreshList();
+</script>
+</body>
+</html>
