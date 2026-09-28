@@ -1,132 +1,245 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Notes on computer vision, birds, and whatever else.">
-  <title>Crossbirds — Aaron Zhou</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
-  <script src="render.js"></script>
-</head>
-<body>
-  <img class="cloud cloud-left" src="img/nice_cloud.svg" alt="">
-  <img class="cloud cloud-right" src="img/nice_cloud.svg" alt="">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Notes on computer vision, birds, and whatever else."
+    />
+    <title>Crossbirds — Aaron Zhou</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
+    <script src="render.js"></script>
+    <script src="birds.js"></script>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="https://zhoaa.github.io/">Aaron Zhou</a>
+      </nav>
+      <div id="view"></div>
+    </main>
 
-  <main>
-    <nav>
-      <a href="https://zhoaa.github.io/">Aaron Zhou</a>
-      <a href="#/">Crossbirds</a>
-    </nav>
-    <div id="view"></div>
-  </main>
+    <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+      <img id="lightbox-img" src="" alt="" />
+    </div>
 
-  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
-    <img id="lightbox-img" src="" alt="">
-  </div>
+    <script>
+      const { renderBlocks, hydrate, esc, prettyDate } = window.FieldNotes;
+      const { birdSVG } = window.Crossbirds;
 
-<script>
-/* ===================================================================
-   Reader only. Posts are static JSON under blog/ — there is no admin
-   code, no password and no token on this page by design. Authoring
-   happens locally via tools/edit.py and ships through git.
-   Block rendering lives in render.js, shared with the editor.
-   =================================================================== */
+      const INDEX_URL = "content/index.json";
+      const POST_URL = (slug) => `content/posts/${slug}.json`;
+      const view = document.getElementById("view");
 
-const { renderBlocks, hydrate, esc, prettyDate } = window.FieldNotes;
+      async function getJSON(url) {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) throw new Error(`${url} → ${r.status}`);
+        return r.json();
+      }
 
-const INDEX_URL = 'content/index.json';
-const POST_URL  = slug => `content/posts/${slug}.json`;
-const view = document.getElementById('view');
 
-async function getJSON(url) {
-  const r = await fetch(url, { cache: 'no-store' });
-  if (!r.ok) throw new Error(`${url} → ${r.status}`);
-  return r.json();
-}
+      let indexCache = null;
+      const getIndex = () =>
+        (indexCache ??= getJSON(INDEX_URL).catch((e) => {
+          indexCache = null;
+          throw e;
+        }));
 
-async function showIndex() {
-  document.title = 'Crossbirds — Aaron Zhou';
-  view.innerHTML = `
+      const cards = (posts) =>
+        posts
+          .map(
+            (p) => `
+  <li class="card">
+    <a href="#/post/${encodeURIComponent(p.slug)}">
+      ${p.cover ? `<img class="card-cover" src="${esc(p.cover)}" alt="" loading="lazy">` : ""}
+      <time>${esc(prettyDate(p.date))}</time>
+      <h2>${esc(p.title)}</h2>
+      ${p.summary ? `<p>${esc(p.summary)}</p>` : ""}
+      <span class="more">Read</span>
+    </a>
+  </li>`,
+          )
+          .join("");
+
+      const countLabel = (n) => `${n} post${n === 1 ? "" : "s"}`;
+
+      /* ---------- home: the branch ---------- */
+
+      // Small per-bird differences so the flock doesn't look stamped out.
+      const SIZES = [1, 1.1, 0.92, 1.04, 0.96, 1.08];
+      const TILTS = [0, -6, 3, -2, 5, -3];
+      const narrow = matchMedia("(max-width:560px)");
+
+      function perch(birds, posts) {
+        const perRow = narrow.matches ? 2 : 4;
+        const rows = [];
+        for (let i = 0; i < birds.length; i += perRow)
+          rows.push(birds.slice(i, i + perRow));
+        return rows
+          .map(
+            (row, r) => `
+    <div class="branch-row${r % 2 ? " flip" : ""}">
+      ${row
+        .map((b, k) => {
+          const i = r * perRow + k;
+          const n = posts.filter((p) => p.bird === b.id).length;
+          return `
+        <a class="bird sing" href="#/bird/${encodeURIComponent(b.id)}"
+           style="--s:${SIZES[i % SIZES.length]};--t:${TILTS[i % TILTS.length]}deg;--c:${esc(b.color)}">
+          <span class="bird-body">${birdSVG(b.color)}</span>
+          <span class="bird-label">${esc(b.name)}<small>${countLabel(n)}</small></span>
+        </a>`;
+        })
+        .join("")}
+    </div>`,
+          )
+          .join("");
+      }
+
+      async function showIndex() {
+        document.title = "Crossbirds — Aaron Zhou";
+        view.innerHTML = `
     <header class="masthead">
-      <h1>Cross<br><em>birds</em></h1>
-      <p class="intro">Computer vision, birds, and whatever else is holding my attention.</p>
+      <h1>crossbirds!</h1>
+      <p class="intro">Read my blog. Read it now.</p>
     </header>
-    <ul class="post-list"><li class="muted">Loading…</li></ul>`;
+    <section class="perch" aria-label="Sections"><p class="muted">Loading…</p></section>`;
 
-  try {
-    const { posts } = await getJSON(INDEX_URL);
-    const list = view.querySelector('.post-list');
-    if (!posts.length) { list.innerHTML = '<li class="muted">Nothing here yet.</li>'; return; }
-    list.innerHTML = posts.map(p => `
-      <li class="card">
-        <a href="#/post/${encodeURIComponent(p.slug)}">
-          ${p.cover ? `<img class="card-cover" src="${esc(p.cover)}" alt="" loading="lazy">` : ''}
-          <time>${esc(prettyDate(p.date))}</time>
-          <h2>${esc(p.title)}</h2>
-          ${p.summary ? `<p>${esc(p.summary)}</p>` : ''}
-          <span class="more">Read</span>
-        </a>
-      </li>`).join('');
-  } catch (e) {
-    view.querySelector('.post-list').innerHTML =
-      `<li class="muted">Could not load posts. ${esc(e.message)}</li>`;
-  }
-}
+        try {
+          const { birds = [], posts = [] } = await getIndex();
+          const paint = () => {
+            view.querySelector(".perch").innerHTML = perch(birds, posts);
+          };
+          paint();
+          narrow.onchange = () => view.querySelector(".perch") && paint();
 
-async function showPost(slug) {
-  view.innerHTML = '<p class="muted pad">Loading…</p>';
-  try {
-    const post = await getJSON(POST_URL(slug));
-    document.title = `${post.title} — Crossbirds`;
-    view.innerHTML = `
+          // A post whose bird was removed shouldn't vanish from the site.
+          const ids = new Set(birds.map((b) => b.id));
+          const loose = posts.filter((p) => !ids.has(p.bird));
+          if (loose.length)
+            view.insertAdjacentHTML(
+              "beforeend",
+              `
+      <h2 class="loose-head">Unsorted</h2><ul class="post-list">${cards(loose)}</ul>`,
+            );
+        } catch (e) {
+          view.querySelector(".perch").innerHTML =
+            `<p class="muted">Could not load posts. ${esc(e.message)}</p>`;
+        }
+      }
+
+      /* ---------- one bird's folder ---------- */
+
+      async function showBird(id) {
+        view.innerHTML = '<p class="muted pad">Loading…</p>';
+        try {
+          const { birds = [], posts = [] } = await getIndex();
+          const bird = birds.find((b) => b.id === id);
+          if (!bird) throw new Error("no such bird");
+          const mine = posts.filter((p) => p.bird === id);
+          document.title = `${bird.name} — Crossbirds`;
+          view.innerHTML = `
+      <header class="masthead folder-head">
+        <div>
+          <h1>${esc(bird.name)}</h1>
+          <p class="intro">${esc(bird.blurb || countLabel(mine.length))}</p>
+        </div>
+        <span class="folder-bird sing">${birdSVG(bird.color)}</span>
+      </header>
+      <ul class="post-list">${
+        mine.length ? cards(mine) : '<li class="muted">Nothing here yet.</li>'
+      }</ul>
+      <a class="back bottom" href="#/">Categories</a>`;
+        } catch (e) {
+          document.title = "Not found — Crossbirds";
+          view.innerHTML = `
+      <div class="pad">
+        <h1 class="notfound">Nothing here</h1>
+        <p class="muted">${
+          e.message === "no such bird"
+            ? `No bird called “${esc(id)}”.`
+            : `Could not load posts. ${esc(e.message)}`
+        }</p>
+        <a class="back" href="#/">Categories</a>
+      </div>`;
+        }
+      }
+
+      /* ---------- a post ---------- */
+
+      async function showPost(slug) {
+        view.innerHTML = '<p class="muted pad">Loading…</p>';
+        try {
+          const [post, idx] = await Promise.all([
+            getJSON(POST_URL(slug)),
+            getIndex().catch(() => ({})),
+          ]);
+          const bird = (idx.birds || []).find((b) => b.id === post.bird);
+          const back = bird
+            ? `href="#/bird/${encodeURIComponent(bird.id)}">${esc(bird.name)}`
+            : 'href="#/">Categories';
+          document.title = `${post.title} — Crossbirds`;
+          view.innerHTML = `
       <article class="post">
-        <a class="back" href="#/">All posts</a>
+        <a class="back" ${back}</a>
         <header class="post-head">
           <time>${esc(prettyDate(post.date))}</time>
           <h1>${esc(post.title)}</h1>
         </header>
         ${renderBlocks(post.blocks)}
-        <a class="back bottom" href="#/">All posts</a>
+        <a class="back bottom" ${back}</a>
       </article>`;
-    hydrate(view, { onImage: openLightbox });
-  } catch {
-    document.title = 'Not found — Crossbirds';
-    view.innerHTML = `
+          hydrate(view, { onImage: openLightbox });
+        } catch {
+          document.title = "Not found — Crossbirds";
+          view.innerHTML = `
       <div class="pad">
         <h1 class="notfound">Nothing here</h1>
         <p class="muted">No post called “${esc(slug)}”.</p>
-        <a class="back" href="#/">All posts</a>
+        <a class="back" href="#/">Categories</a>
       </div>`;
-  }
-}
+        }
+      }
 
-const lightbox = document.getElementById('lightbox');
-function openLightbox(src) {
-  document.getElementById('lightbox-img').src = src;
-  lightbox.classList.remove('hidden');
-}
-lightbox.addEventListener('click', () => lightbox.classList.add('hidden'));
-addEventListener('keydown', e => {
-  if (e.key === 'Escape') lightbox.classList.add('hidden');
-});
+      const lightbox = document.getElementById("lightbox");
+      function openLightbox(src) {
+        document.getElementById("lightbox-img").src = src;
+        lightbox.classList.remove("hidden");
+      }
+      lightbox.addEventListener("click", () =>
+        lightbox.classList.add("hidden"),
+      );
+      addEventListener("keydown", (e) => {
+        if (e.key === "Escape") lightbox.classList.add("hidden");
+      });
 
-function route() {
-  const m = location.hash.match(/^#\/post\/(.+)$/);
-  window.scrollTo(0, 0);
-  if (m) showPost(decodeURIComponent(m[1]));
-  else showIndex();
-}
+      function route() {
+        const post = location.hash.match(/^#\/post\/(.+)$/);
+        const bird = location.hash.match(/^#\/bird\/(.+)$/);
+        window.scrollTo(0, 0);
+        document.body.dataset.view = post ? "post" : bird ? "bird" : "home";
+        if (post) showPost(decodeURIComponent(post[1]));
+        else if (bird) showBird(decodeURIComponent(bird[1]));
+        else showIndex();
+      }
 
-addEventListener('hashchange', route);
-route();
-</script>
-</body>
+      addEventListener("hashchange", route);
+      route();
+    </script>
+  </body>
 </html>

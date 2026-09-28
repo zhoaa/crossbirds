@@ -29,13 +29,23 @@ INDEX = CONTENT / "index.json"
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9._-]+")
+COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 ALLOWED_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"}
 MAX_UPLOAD = 12 * 1024 * 1024
 
 # Only these paths are ever staged. Keeps a stray .env or key out of a
 # commit made by one click, and keeps the diff reviewable.
-PUBLISH_PATHS = ["content", "index.html", "style.css", "render.js", "img", "tools"]
+PUBLISH_PATHS = ["content", "index.html", "style.css", "render.js", "birds.js", "img", "tools"]
 MAIN_BRANCH = "main"
+
+# The sections of the blog, drawn as birds on a branch. index.json holds
+# the live list; this is only the starting set for a fresh index.
+DEFAULT_BIRDS = [
+    {"id": "birds", "name": "Birds", "color": "#e0513a", "blurb": ""},
+    {"id": "projects", "name": "Projects", "color": "#ee9433", "blurb": ""},
+    {"id": "musings", "name": "Musings", "color": "#3f7fc4", "blurb": ""},
+    {"id": "coursework", "name": "Coursework", "color": "#4f9a4c", "blurb": ""},
+]
 
 
 def git(*args, check=True, raw=False):
@@ -135,9 +145,38 @@ def git_publish(message: str, merge: bool, push: bool):
 
 
 def read_index() -> dict:
-    if INDEX.exists():
-        return json.loads(INDEX.read_text())
-    return {"posts": []}
+    idx = json.loads(INDEX.read_text()) if INDEX.exists() else {}
+    return {
+        "birds": idx.get("birds") or [dict(b) for b in DEFAULT_BIRDS],
+        "posts": idx.get("posts") or [],
+    }
+
+
+def write_index(idx: dict) -> None:
+    write_json(INDEX, {"birds": idx["birds"], "posts": idx["posts"]})
+
+
+def clean_birds(raw) -> list:
+    """Validate the bird list sent by the editor. Raises ValueError."""
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("need at least one bird")
+    birds, seen = [], set()
+    for b in raw:
+        bid = str(b.get("id") or "").strip()
+        name = str(b.get("name") or "").strip()
+        color = str(b.get("color") or "").strip()
+        if not SLUG_RE.match(bid):
+            raise ValueError(f"bad bird id: {bid!r}")
+        if bid in seen:
+            raise ValueError(f"two birds called {bid!r}")
+        if not name:
+            raise ValueError(f"bird {bid!r} needs a name")
+        if not COLOR_RE.match(color):
+            raise ValueError(f"bird {bid!r} has a bad colour: {color!r}")
+        seen.add(bid)
+        birds.append({"id": bid, "name": name, "color": color.lower(),
+                      "blurb": str(b.get("blurb") or "").strip()})
+    return birds
 
 
 def write_json(path: Path, payload) -> None:
@@ -153,7 +192,7 @@ def upsert_index(meta: dict) -> None:
     posts = [p for p in idx["posts"] if p["slug"] != meta["slug"]]
     posts.append(meta)
     posts.sort(key=lambda p: (p.get("date") or "", p["slug"]), reverse=True)
-    write_json(INDEX, {"posts": posts})
+    write_index({**idx, "posts": posts})
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -236,6 +275,22 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_PUT(self):
         route = urlparse(self.path).path
+
+        if route == "/api/birds":
+            try:
+                birds = clean_birds(self.body().get("birds"))
+            except (ValueError, AttributeError) as e:
+                return self.fail(400, str(e))
+            idx = read_index()
+            ids = {b["id"] for b in birds}
+            gone = {b["id"] for b in idx["birds"]} - ids
+            orphans = [p["title"] for p in idx["posts"] if p.get("bird") in gone]
+            if orphans:
+                return self.fail(409, f"move these posts off a removed bird first: {', '.join(orphans)}")
+            write_index({**idx, "birds": birds})
+            print(f"  saved {len(birds)} birds")
+            return self.send_json({"ok": True, "birds": birds})
+
         if not route.startswith("/api/post/"):
             return self.fail(404, "no such endpoint")
         try:
@@ -244,9 +299,14 @@ class Handler(SimpleHTTPRequestHandler):
         except ValueError as e:
             return self.fail(400, str(e))
 
+        bird = data.get("bird")
+        if bird not in {b["id"] for b in read_index()["birds"]}:
+            return self.fail(400, f"no such bird: {bird!r}")
+
         post = {
             "title": (data.get("title") or "Untitled").strip(),
             "date": data.get("date") or date.today().isoformat(),
+            "bird": bird,
             "blocks": data.get("blocks") or [],
         }
         write_json(POSTS / f"{slug}.json", post)
@@ -254,6 +314,7 @@ class Handler(SimpleHTTPRequestHandler):
             "slug": slug,
             "title": post["title"],
             "date": post["date"],
+            "bird": bird,
             "summary": (data.get("summary") or "").strip() or None,
             "cover": data.get("cover") or None,
         })
@@ -271,7 +332,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         (POSTS / f"{slug}.json").unlink(missing_ok=True)
         idx = read_index()
-        write_json(INDEX, {"posts": [p for p in idx["posts"] if p["slug"] != slug]})
+        write_index({**idx, "posts": [p for p in idx["posts"] if p["slug"] != slug]})
         print(f"  deleted {slug}")
         return self.send_json({"ok": True})
 
@@ -332,8 +393,8 @@ class Handler(SimpleHTTPRequestHandler):
 def main(port: int = 4000):
     POSTS.mkdir(parents=True, exist_ok=True)
     IMAGES.mkdir(parents=True, exist_ok=True)
-    if not INDEX.exists():
-        write_json(INDEX, {"posts": []})
+    if not INDEX.exists() or "birds" not in json.loads(INDEX.read_text()):
+        write_index(read_index())
 
     handler = partial(Handler, directory=str(ROOT))
 

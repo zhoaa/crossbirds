@@ -1,5 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap');
 :root {
-  --sky:#93d3d1; --ink:#172d30; --white:#f7fcfb;
+  --sky:#c8dcdb; --ink:#172d30; --white:#f7fcfb; --bark:#24393a;
   --blue:#a8d4e7; --red:#efbbb2; --green:#b9dfb5;
   --panel:rgba(247,252,251,.62);
   --panel-solid:#eaf6f4;
@@ -9,17 +10,22 @@
 * { box-sizing:border-box; }
 body {
   margin:0; overflow-x:hidden; color:var(--ink); background:var(--sky);
-  font:18px/1.65 'Cabin', Helvetica, sans-serif;
+  font: 18px/1.65 "Courier", Helvetica, sans-serif;
   -webkit-font-smoothing:antialiased;
 }
 .hidden { display:none !important; }
 .muted { color:var(--dim); }
 .pad { padding:60px 0; }
 
+/* a slightly darker reading column behind posts and section pages;
+   the home page stays open so the branches can run edge to edge */
+body[data-view=post]::before, body[data-view=bird]::before {
+  content:''; position:fixed; top:0; bottom:0; left:50%; z-index:0;
+  width:min(100%, 860px); transform:translateX(-50%);
+  background:rgba(23,45,48,.06); pointer-events:none;
+}
+
 main { position:relative; z-index:1; width:min(100% - 48px, 720px); margin:auto; padding:28px 0 140px; }
-.cloud { position:absolute; opacity:.26; pointer-events:none; }
-.cloud-left { top:460px; left:-470px; width:720px; transform:scaleX(-1); }
-.cloud-right { top:-270px; right:-330px; width:720px; }
 
 nav { display:flex; justify-content:space-between; align-items:center;
   font-size:.88rem; font-weight:600; margin-bottom:8px; }
@@ -49,6 +55,57 @@ nav a:first-child::before { content:'← '; }
 .card p { margin:9px 0 0; color:var(--dim); font-size:1rem; }
 .more { display:inline-block; margin-top:14px; font-size:.86rem; font-weight:700; }
 .more::after { content:' →'; }
+
+/* ── the branch: one bird per section ── */
+.perch { display:block; margin-top:34px; }
+.branch-row { --h:132px; position:relative; display:flex; justify-content:space-around;
+  align-items:flex-end; height:var(--h); margin-bottom:96px; }
+/* full-bleed, reaching in from one side like a real branch off a trunk */
+.branch-row::before, .branch-row::after { content:''; position:absolute; top:100%;
+  height:5px; border-radius:5px; background:var(--bark); }
+.branch-row::before { left:calc(50% - 50vw); right:calc(50% - 50vw + 7vw); }
+.branch-row::after { width:44px; right:calc(50% - 50vw + 7vw + 8px);
+  transform-origin:0 50%; transform:rotate(-26deg); }
+.branch-row.flip::before { left:calc(50% - 50vw + 7vw); right:calc(50% - 50vw); }
+.branch-row.flip::after { right:auto; left:calc(50% - 50vw + 7vw + 8px);
+  transform-origin:100% 50%; transform:rotate(26deg); }
+
+.bird { position:relative; z-index:1; width:calc(108px * var(--s, 1));
+  color:var(--ink); text-decoration:none; outline:none; }
+.bird-body { display:block; transform:rotate(var(--t, 0deg)); transform-origin:50% 100%; }
+.bird-label { position:absolute; top:calc(100% + 16px); left:50%; transform:translateX(-50%);
+  white-space:nowrap; text-align:center; font-weight:700; font-size:1.02rem; line-height:1.2;
+  padding-bottom:3px; border-bottom:3px solid transparent; transition:border-color .16s; }
+.bird-label small { display:block; margin-top:3px; font-size:.74rem; font-weight:600;
+  letter-spacing:.04em; color:var(--dim); }
+.bird:hover .bird-label, .bird:focus-visible .bird-label { border-bottom-color:var(--c); }
+
+/* singing: beak opens, notes drift up and out */
+.bird-svg { display:block; width:100%; height:auto; overflow:visible; }
+.bird-svg .beak-top, .bird-svg .beak-bot { transform-box:view-box;
+  transform-origin:76px 45px; transition:transform .14s ease-out; }
+.sing:hover .beak-top, .sing:focus-visible .beak-top { transform:rotate(-17deg); }
+.sing:hover .beak-bot, .sing:focus-visible .beak-bot { transform:rotate(14deg); }
+.bird-svg .note { fill:var(--ink); stroke:var(--ink); opacity:0; }
+.sing:hover .note, .sing:focus-visible .note { animation:note 1.4s ease-out infinite; }
+.sing:hover .n2, .sing:focus-visible .n2 { animation-delay:.7s; }
+@keyframes note {
+  0%   { opacity:0; transform:translate(-4px, 6px) scale(.6); }
+  20%  { opacity:1; }
+  100% { opacity:0; transform:translate(14px, -30px) rotate(14deg) scale(1); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .sing:hover .note, .sing:focus-visible .note { animation:none; opacity:1; }
+  .sing:hover .n2, .sing:focus-visible .n2 { opacity:0; }
+}
+
+.loose-head { margin:0 0 16px; font-size:.76rem; font-weight:700; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--dim); }
+
+/* ── a bird's folder ── */
+.folder-head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
+.folder-bird { flex:0 0 118px; padding:0 10px; border-bottom:5px solid var(--bark);
+  border-radius:0 0 3px 3px; }
 
 /* ── post ── */
 .back { display:inline-block; font-size:.86rem; font-weight:600;
@@ -186,5 +243,6 @@ figcaption { margin-top:11px; font-size:.86rem; color:var(--dim); line-height:1.
   .card h2 { font-size:1.35rem; }
   .b-code pre { padding:18px 16px; }
   .b-gallery .shot img { height:120px; }
-  .cloud-left { left:-620px; }
+  .branch-row { --h:120px; margin-bottom:88px; }
+  .folder-bird { flex-basis:84px; }
 }

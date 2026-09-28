@@ -6,6 +6,7 @@
   <title>Editor — Crossbirds</title>
   <link href="https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/tools/editor.css">
+  <script src="/birds.js"></script>
 </head>
 <body>
 
@@ -14,11 +15,14 @@
     <span class="mark"></span>
     <div><strong>Crossbirds</strong><small>local editor</small></div>
   </div>
-  <button id="new-post" class="btn block"><span class="ico" data-i="plus"></span>New post</button>
+  <div class="side-actions">
+    <button id="new-post" class="btn"><span class="ico" data-i="plus"></span>New post</button>
+    <button id="birds-open" class="btn ghost" title="Add, rename or recolour birds">Birds</button>
+  </div>
   <ul id="post-list" class="side-list"></ul>
   <div class="side-foot">
     <div class="branch-chip" id="branch-chip"><span class="ico" data-i="branch"></span><span>—</span></div>
-    <p>Files save to <code>blog/</code>. Publish commits and pushes.</p>
+    <p>Files save to <code>content/</code>. Publish commits and pushes.</p>
   </div>
 </aside>
 
@@ -46,6 +50,7 @@
       <div class="meta-card">
         <label class="wide">Title<input type="text" id="m-title" placeholder="Post title"></label>
         <label class="wide">Summary<input type="text" id="m-summary" placeholder="One line, shown on the index"></label>
+        <div class="wide"><span class="fl">Bird</span><div id="m-bird" class="bird-pick"></div></div>
         <label>Slug<input type="text" id="m-slug" placeholder="url-slug"></label>
         <label>Date<input type="date" id="m-date"></label>
       </div>
@@ -75,6 +80,24 @@
       <button class="btn icon-only subtle" id="publish-close"><span class="ico" data-i="x"></span></button>
     </header>
     <div id="publish-body" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="birds-modal" class="modal hidden">
+  <div class="sheet wide-sheet">
+    <header class="sheet-head">
+      <h2>Birds</h2>
+      <button class="btn icon-only subtle" id="birds-close"><span class="ico" data-i="x"></span></button>
+    </header>
+    <div class="sheet-body">
+      <p class="hint">Each bird is a section of the blog, perched left to right on the front page.</p>
+      <div id="bird-rows" class="bird-rows"></div>
+      <div><button class="btn small ghost" id="bird-add"><span class="ico" data-i="plus"></span>Add bird</button></div>
+      <div class="sheet-actions">
+        <button class="btn ghost" id="birds-cancel">Cancel</button>
+        <button class="btn solid" id="birds-save"><span class="ico" data-i="check"></span>Save birds</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -159,6 +182,10 @@ const BLANK = {
 
 let doc = null;
 let original = '';
+let birds = [];
+let postsMeta = [];
+const { birdSVG } = window.Crossbirds;
+const birdById = id => birds.find(b => b.id === id);
 let previewReady = false;
 const collapsed = new WeakSet();
 
@@ -212,7 +239,8 @@ addEventListener('message', e => {
 async function refreshList(active) {
   let posts;
   try {
-    ({ posts } = await api('GET', '/api/index'));
+    ({ posts, birds } = await api('GET', '/api/index'));
+    postsMeta = posts;
   } catch {
     // no local API — opened from the published site, where it can do nothing
     document.body.innerHTML =
@@ -222,12 +250,23 @@ async function refreshList(active) {
     return;
   }
 
-  $('post-list').innerHTML = posts.length ? posts.map(p => `
+  const item = p => `
     <li><button class="side-item${p.slug === active ? ' on' : ''}" data-slug="${esc(p.slug)}">
       <span class="t">${esc(p.title)}</span>
       <span class="d">${esc(p.date)}</span>
-    </button></li>`).join('')
-    : '<li class="side-empty">No posts yet</li>';
+    </button></li>`;
+  const group = (b, list) => `
+    <li class="side-group" style="--c:${esc(b.color)}">
+      <span class="mini-bird">${birdSVG(b.color)}</span>${esc(b.name)}<span class="n">${list.length}</span>
+    </li>
+    ${list.map(item).join('') || '<li class="side-empty">No posts</li>'}`;
+
+  const ids = new Set(birds.map(b => b.id));
+  const loose = posts.filter(p => !ids.has(p.bird));
+  $('post-list').innerHTML =
+    birds.map(b => group(b, posts.filter(p => p.bird === b.id))).join('') +
+    (loose.length ? group({ name:'Unsorted', color:'#9aa9a8' }, loose) : '');
+  if (doc) paintBirdPick();
 
   $('post-list').querySelectorAll('.side-item').forEach(b =>
     b.addEventListener('click', () => openPost(b.dataset.slug)));
@@ -255,6 +294,7 @@ async function openPost(slug) {
     slug,
     title: post.title || '',
     date: post.date || new Date().toISOString().slice(0, 10),
+    bird: post.bird || meta.bird || '',
     summary: meta.summary || '',
     cover: meta.cover || null,
     blocks: post.blocks || []
@@ -266,7 +306,7 @@ async function openPost(slug) {
 function newPost() {
   if (!confirmDiscard()) return;
   doc = { slug:'', title:'', date:new Date().toISOString().slice(0,10),
-          summary:'', cover:null, blocks:[] };
+          bird: birds[0]?.id || '', summary:'', cover:null, blocks:[] };
   paintAll();
   $('m-title').focus();
 }
@@ -283,6 +323,7 @@ function paintAll() {
   $('m-date').value = doc.date;
   $('m-summary').value = doc.summary || '';
   $('slug-label').textContent = doc.slug ? `content/posts/${doc.slug}.json` : 'unsaved';
+  paintBirdPick();
   paintBlocks();
   markClean();
 }
@@ -320,6 +361,23 @@ function paintBlocks() {
   paintIcons(wrap);
   wireBlocks();
   pushPreview();
+}
+
+/* which bird this post sits under */
+function paintBirdPick() {
+  const pick = $('m-bird');
+  pick.innerHTML = birds.map(b => `
+    <button type="button" class="bird-chip${b.id === doc.bird ? ' on' : ''}"
+            data-bird="${esc(b.id)}" style="--c:${esc(b.color)}">
+      <span class="mini-bird">${birdSVG(b.color)}</span>${esc(b.name)}
+    </button>`).join('') +
+    (doc.bird && !birdById(doc.bird)
+      ? `<span class="warn">“${esc(doc.bird)}” no longer exists — pick a bird</span>` : '');
+  pick.querySelectorAll('[data-bird]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      doc.bird = btn.dataset.bird;
+      paintBirdPick(); paintDirty();
+    }));
 }
 
 /* one-line summary shown on a collapsed block */
@@ -542,6 +600,7 @@ async function save() {
   doc.slug = $('m-slug').value.trim() || slugify(doc.title);
 
   if (!doc.title) return toast('Give it a title', true);
+  if (!birdById(doc.bird)) return toast('Pick a bird for this post', true);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(doc.slug))
     return toast('Slug must be lowercase words joined by dashes', true);
 
@@ -662,6 +721,87 @@ async function runPublish(status) {
   }
 }
 
+/* ---------- birds ----------
+   Edited as a draft and only written on "Save birds". Ids are fixed
+   once saved, because posts point at them; the name is what shows.   */
+
+let flock = [];
+const PALETTE = ['#e0513a', '#ee9433', '#3f7fc4', '#4f9a4c', '#8a5cc2', '#d9577f', '#2f9c95', '#c9a227'];
+
+function openBirds() {
+  flock = birds.map(b => ({ ...b, saved:true }));
+  paintBirdRows();
+  $('birds-modal').classList.remove('hidden');
+}
+function closeBirds() { $('birds-modal').classList.add('hidden'); }
+
+function paintBirdRows() {
+  const counts = id => postsMeta.filter(p => p.bird === id).length;
+  $('bird-rows').innerHTML = flock.map((b, i) => {
+    const n = b.saved ? counts(b.id) : 0;
+    return `
+    <div class="bird-row" data-i="${i}">
+      <label class="swatch" title="Colour">
+        <span class="mini-bird big">${birdSVG(b.color)}</span>
+        <input type="color" data-k="color" value="${esc(b.color)}">
+      </label>
+      <div class="bird-fields">
+        <div class="bird-line">
+          <input type="text" data-k="name" value="${esc(b.name)}" placeholder="Name">
+          ${b.saved
+            ? `<code class="bird-id" title="Fixed: posts refer to this id">#/bird/${esc(b.id)}</code>`
+            : `<input type="text" class="mono" data-k="id" value="${esc(b.id)}" placeholder="url-id">`}
+        </div>
+        <input type="text" data-k="blurb" value="${esc(b.blurb)}" placeholder="Blurb under the title on its page (optional)">
+      </div>
+      <div class="bird-tools">
+        <span class="n">${n} post${n === 1 ? '' : 's'}</span>
+        <button class="ico-btn" data-act="up" title="Move left"><span class="ico" data-i="up"></span></button>
+        <button class="ico-btn" data-act="down" title="Move right"><span class="ico" data-i="down"></span></button>
+        <button class="ico-btn danger" data-act="del" ${n ? `disabled title="Move its ${n} post(s) to another bird first"` : 'title="Remove"'}>
+          <span class="ico" data-i="trash"></span></button>
+      </div>
+    </div>`;
+  }).join('');
+  paintIcons($('bird-rows'));
+
+  $('bird-rows').querySelectorAll('.bird-row').forEach(row => {
+    const b = flock[+row.dataset.i];
+    row.querySelectorAll('input[data-k]').forEach(inp =>
+      inp.addEventListener('input', () => {
+        const k = inp.dataset.k;
+        b[k] = inp.value;
+        if (k === 'name' && !b.saved && !b.idTouched) {
+          b.id = slugify(inp.value);
+          row.querySelector('[data-k=id]').value = b.id;
+        }
+        if (k === 'id') b.idTouched = true;
+        if (k === 'color') row.querySelector('.mini-bird').innerHTML = birdSVG(b.color);
+      }));
+    row.querySelectorAll('[data-act]').forEach(btn =>
+      btn.addEventListener('click', () => {
+        const i = +row.dataset.i, act = btn.dataset.act;
+        if (act === 'up' && i > 0) [flock[i-1], flock[i]] = [flock[i], flock[i-1]];
+        if (act === 'down' && i < flock.length - 1) [flock[i+1], flock[i]] = [flock[i], flock[i+1]];
+        if (act === 'del') flock.splice(i, 1);
+        paintBirdRows();
+      }));
+  });
+}
+
+async function saveBirds() {
+  const out = flock.map(({ id, name, color, blurb }) =>
+    ({ id: id.trim(), name: name.trim(), color, blurb: (blurb || '').trim() }));
+  const bad = out.find(b => !b.name || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(b.id));
+  if (bad) return toast(bad.name ? `“${bad.name}” needs a url id of lowercase words and dashes` : 'Every bird needs a name', true);
+  try {
+    await api('PUT', '/api/birds', { birds: out });
+    closeBirds();
+    await refreshList(doc?.slug);
+    toast('Birds saved');
+  } catch (e) { toast(e.message, true); }
+}
+
 /* ---------- boot ---------- */
 
 paintIcons(document);
@@ -671,6 +811,17 @@ $('save').addEventListener('click', save);
 $('delete').addEventListener('click', removePost);
 $('publish-open').addEventListener('click', openPublish);
 $('publish-close').addEventListener('click', closePublish);
+$('birds-open').addEventListener('click', openBirds);
+$('birds-close').addEventListener('click', closeBirds);
+$('birds-cancel').addEventListener('click', closeBirds);
+$('birds-save').addEventListener('click', saveBirds);
+$('bird-add').addEventListener('click', () => {
+  const used = new Set(flock.map(b => b.color));
+  flock.push({ id:'', name:'', blurb:'', saved:false,
+               color: PALETTE.find(c => !used.has(c)) || PALETTE[flock.length % PALETTE.length] });
+  paintBirdRows();
+  $('bird-rows').lastElementChild.querySelector('[data-k=name]').focus();
+});
 $('toggle-preview').addEventListener('click', () => {
   document.body.classList.toggle('no-preview');
   $('toggle-preview').classList.toggle('off');
@@ -699,7 +850,7 @@ $('add-buttons').querySelectorAll('[data-add]').forEach(b =>
 
 addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (doc) save(); }
-  if (e.key === 'Escape') closePublish();
+  if (e.key === 'Escape') { closePublish(); closeBirds(); }
 });
 addEventListener('beforeunload', e => { if (isDirty()) e.preventDefault(); });
 
