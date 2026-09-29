@@ -96,11 +96,18 @@ window.FieldNotes = (() => {
 
   let uid = 0;
 
+  /* An optional pixel height set in the editor. Blank keeps the block's
+     automatic sizing; anything else becomes --h on the block.         */
+  const sized = (b) => {
+    const h = Math.round(Number(b.height));
+    return h >= 40 ? ` sized" style="--h:${h}px` : "";
+  };
+
   const BLOCKS = {
     text: (b) => `<div class="prose">${md(b.md)}</div>`,
 
     image: (b) => `
-    <figure class="b-image">
+    <figure class="b-image${sized(b)}">
       <img src="${esc(b.src)}" alt="${esc(b.alt)}" loading="lazy">
       ${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ""}
     </figure>`,
@@ -118,13 +125,14 @@ window.FieldNotes = (() => {
     </blockquote>`,
 
     gallery: (b) => `
-    <figure class="b-gallery">
+    <figure class="b-gallery${sized(b)}">
       <div class="grid">
         ${(b.images || [])
           .map(
             (im) => `
           <button class="shot" data-full="${esc(im.src)}">
-            <img src="${esc(im.src)}" alt="${esc(im.alt)}" loading="lazy">
+            <span class="frame"><img src="${esc(im.src)}" alt="${esc(im.alt)}" loading="lazy"></span>
+            ${im.caption ? `<span class="shot-cap">${esc(im.caption)}</span>` : ""}
           </button>`,
           )
           .join("")}
@@ -137,7 +145,7 @@ window.FieldNotes = (() => {
       if (!slides.length)
         return `<figure class="b-slideshow empty">No slides yet.</figure>`;
       return `
-    <figure class="b-slideshow" id="slides-${++uid}" tabindex="0">
+    <figure class="b-slideshow${sized(b)}" id="slides-${++uid}" tabindex="0">
       <div class="stage">
         ${slides
           .map(
@@ -294,11 +302,19 @@ json.dumps(_figs)
    `onImage` lets the host decide what clicking a gallery shot does.  */
 
   function hydrate(root, { onImage } = {}) {
-    root
-      .querySelectorAll(".b-gallery .shot")
-      .forEach((btn) =>
-        btn.addEventListener("click", () => onImage?.(btn.dataset.full)),
-      );
+    root.querySelectorAll(".b-gallery .shot").forEach((btn) => {
+      btn.addEventListener("click", () => onImage?.(btn.dataset.full));
+
+      // The justified layout in style.css sizes each shot by its aspect
+      // ratio, which is only known once the image has loaded.
+      const img = btn.querySelector("img");
+      const measure = () => {
+        if (img.naturalWidth && img.naturalHeight)
+          btn.style.setProperty("--ar", img.naturalWidth / img.naturalHeight);
+      };
+      if (img.complete) measure();
+      else img.addEventListener("load", measure, { once: true });
+    });
 
     root.querySelectorAll(".b-slideshow").forEach((el) => {
       const slides = [...el.querySelectorAll(".slide")];

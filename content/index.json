@@ -1,17 +1,37 @@
 {
   "birds": [
-    { "id": "birds", "name": "Birds", "color": "#e0513a", "blurb": "" },
-    { "id": "projects", "name": "Projects", "color": "#ee9433", "blurb": "" },
-    { "id": "musings", "name": "Musings", "color": "#3f7fc4", "blurb": "" },
-    { "id": "coursework", "name": "Coursework", "color": "#4f9a4c", "blurb": "" }
+    {
+      "id": "birds",
+      "name": "Birds",
+      "color": "#e0513a",
+      "blurb": ""
+    },
+    {
+      "id": "projects",
+      "name": "Projects",
+      "color": "#ee9433",
+      "blurb": ""
+    },
+    {
+      "id": "musings",
+      "name": "Musings",
+      "color": "#3f7fc4",
+      "blurb": ""
+    },
+    {
+      "id": "coursework",
+      "name": "Coursework",
+      "color": "#4f9a4c",
+      "blurb": ""
+    }
   ],
   "posts": [
     {
       "slug": "images-of-the-russian-empire",
-      "title": "Images of the Russian Empire",
+      "title": "SYDE 671 Assignment 1",
       "date": "2026-09-28",
       "bird": "coursework",
-      "summary": null,
+      "summary": "How often do you think about the Russian Empire?",
       "cover": null
     }
   ]

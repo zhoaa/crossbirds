@@ -1,34 +1,412 @@
 {
-  "title": "Images of the Russian Empire",
+  "title": "SYDE 671 Assignment 1",
   "date": "2026-09-28",
   "bird": "coursework",
   "blocks": [
     {
       "type": "text",
-      "md": "# **PART 1**"
+      "md": "# 1. Becoming Friends with your Camera\n"
     },
     {
       "type": "text",
-      "md": "# **PART 2**\n"
+      "md": "# **2. Images of the Russian Empire**\nFor this next part, we will be working with  Prokudin-Gorskii photo collection, colorizing black-and-white images. Each photo comes as a set of 3 constituent photos, a blue, green and red exposure (top to bottom):"
     },
     {
       "type": "image",
-      "src": "",
+      "src": "content/images/A6B35672-7D29-42C6-AA13-7477EE50EDC6.png",
+      "alt": "",
+      "caption": "",
+      "height": null
+    },
+    {
+      "type": "text",
+      "md": "Splitting the images is simple enough, just divide the initial image into equal thirds (although we'll explore problems this simple approach may cause down the road). The real tricky part is bringing them back together again. If we just naively splice them together, we get a rather unappealing result:\n\n\n"
+    },
+    {
+      "type": "image",
+      "src": "content/images/bad_result.jpg",
+      "alt": "",
+      "caption": "",
+      "height": null
+    },
+    {
+      "type": "text",
+      "md": "Oof. Can we do better?\n## Single Scale Alignment\nOur first step is to choose a good alignment metric in order to be able to quantize our potential alignments. Basically, we want some kind of measurement that enables us to tell how much an image matches with another. One smart way to do this is with **Normalized Cross Correlation**, which compares vectors using their dot products:"
+    },
+    {
+      "type": "math",
+      "tex": "\\operatorname{NCC}(a,b)\n=\n\\frac{\n(a-\\bar{a}) \\cdot (b-\\bar{b})\n}{\n\\| a - \\bar{a} \\| \\cdot \\| b - \\bar{b} \\|\n}",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "To get some intuition for why this is such a good metric, note that the dot product is the summation of each term of one vector multiplied by the corresponding term of the other. When two strong positive values multiply together, they add a strong positive component to the resultant sum. The same occurs for two strong negative values, while a positive and negative value produce a negative component. Thus, the dot product is large when the two vectors have similar patterns and small or negative when their values differ.\n\nHowever, we cannot stop there! Consider $a=[100,95,90]^T$ and $b=[1,5,10]^T$. These vectors have opposite patterns, but their raw dot product is still positive and relatively large: $a \\cdot b = 100(1)+95(5)+90(10)=1955$...\n\nTo better capture their relative patterns, we first subtract the mean from each vector. For $a$, the mean is $95$, giving $a-\\bar{a}=[5,0,-5]^T$. For $b$, the mean is $16/3$, giving $b-\\bar{b}=[-13/3,-1/3,14/3]^T$. Now, the dot product is negative, correctly reflecting that the vectors are inversely correlated.\n\nFinally, we divide by the product of their magnitudes to make the score independent of the overall scale of the vectors. This gives us the normalized cross-correlation score, which ranges from $-1$ to $1$.\n\nTo get this to work with images, which are matrices, all we need to do is flatten them into vectors:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "# A, B are grayscale images (matrices) -> [-1, 1]\ndef ncc(A, B):\n\n    # flatten matrices into vectors\n    a = A.astype(np.float32).ravel() \n    b = B.astype(np.float32).ravel()\n\n    # normalize for overall brightness by subtracting the mean of each vector\n    a -= a.mean()\n    b -= b.mean()\n\n    # use dot product in order to find how similiar vectors are\n    ncc = np.dot(a, b)\n\n    # normalize for contrast by dividing the magnitude\n    ncc =  ncc / np.sqrt(np.dot(a, a) * np.dot(b, b))\n   \n    return ncc"
+    },
+    {
+      "type": "text",
+      "md": "Now that we have our metric, we can iteratively check alignments of our images with our new **ncc** function. Then, the \"best\" alignment will be the one that gives us the highest NCC value! "
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/3_single-1.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/3_single_1.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "The left image has NCC_Green = 0.625435950 and NCC_Red =  0.4822441, while the right image has NCC_Green = 0.9234326 and NCC_Red = 0.8344153. The higher the NCC, the better the alignment!"
+    },
+    {
+      "type": "text",
+      "md": "Unfortunately, just blindly finding the highest NCC value gives less than stellar results:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/00458u-1.jpg",
       "alt": "",
       "caption": ""
     },
     {
       "type": "text",
-      "md": "## Single Scale Alignment\n"
-    },
-    {
-      "type": "text",
-      "md": "Our first step is to choose a good alignment metric in order to be able to quantize our potential alignments. For this assignment, I chose to use Normalized Cross Correlation, which utilizes the dot product of the "
+      "md": "But why? Have I lied, and NCC is not a good metric after all? No!!! In fact, NCC is working exactly as intended here! The issue is the borders *around* the images, which add strong but erroneous signals to the NCC sum... So, let's just remove these borders. For now, lets just use a simple crop. \"But no!\" you might say, \"What if you crop too far into the image!? Won't we lose vital data!?\".  Worry not! Luckily, most images have enough (if not most) of their important data in the middle of the frame to align the image with. So, if we consider there being some optimal global offset, if we find the optimal offset of the inside of the image, the outer edge of the image will most likely be pretty well aligned as well! The only caveat is that after finding the delta offsets, we need to instead align the non-cropped versions of the images in order to see the full image again.\n"
     },
     {
       "type": "code",
       "language": "python",
-      "code": "def ncc(a, b):\n    a = a.astype(np.float32)\n    b = b.astype(np.float32)\n\n    a -= a.mean()\n    b -= b.mean()\n\n    return np.sum(a * b) / np.sqrt(np.sum(a * a) * np.sum(b * b)"
+      "code": "crop = third // 12 # take off a twelth of each image from each side\n\nh = min(B.shape[0], G.shape[0], R.shape[0])\nw = min(B.shape[1], G.shape[1], R.shape[1])\n\nB_cropped, G_cropped, R_cropped = [ch[crop : h - crop, crop : w - crop] for ch in (B, G, R)]\n\n# ... find best alignments / delta offsets: gdy, gdx, rdy, rdx ...  \n\n# final alignment uses the uncropped versions:\nG = np.roll(G, (gdy, gdx), axis=(0, 1))\nR = np.roll(R, (rdy, rdx), axis=(0, 1))\n\nresult = cv2.merge([B, G, R])"
+    },
+    {
+      "type": "text",
+      "md": "With that settled, let's discuss some efficiency concerns.\nFirst, note that while we have 3 images/colors to align, we don't need to compare all of them to each other. We can set Blue as our base, check Green and Red against it, then align all 3. \n\nEven then, checking ALL $(2n-1)^2$ orientations each of both Green and Red would be extraordinarily time consuming. Luckily, we notice that we don't actually have to check most of those combinations. Since we generally know that the images are sliced such that the images are roughly centered, we can safely ignore extremely distant/non-overlapping alignments. Empirically, I found that checking 200 pixels in each direction was a very safe threshold for this particular set of images. But even that is quite an excessive amount of calculations. We note that instead of checking all of these, we can shrink the image by a factor of 4, and then check just 50 pixels in each direction. This effectively gives us the range of checking 200 pixels in each direction, 1600% faster, at the cost of sacrificing only $\\pm$4 pixels of accuracy. \n\nThen, after discovering the alignments using cropped NCC, we can align using the original images:"
+    },
+    {
+      "type": "slideshow",
+      "slides": [
+        {
+          "src": "content/images/1_single.jpg",
+          "alt": "",
+          "caption": "G offset: (4.0, 44.0), R offset: (32.0, 88.0)"
+        },
+        {
+          "src": "content/images/2_single.jpg",
+          "alt": "",
+          "caption": "G offset: (0.0, 8.0),  R offset: (0.0, 12.0)"
+        },
+        {
+          "src": "content/images/3_single-2.jpg",
+          "alt": "",
+          "caption": "G offset: (8.0, 56.0), R offset: (12.0, 116.0)"
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "This method, while simple, has its drawbacks. For one, we can see that the Prokudin-Gorskii images are effectively aligned at <200 pixels delta, but that may not always be the case. Especially for larger images, if we keep just shrinking the image until it fits under our computational load threshold, we can start to lose a lot of fine data!\n\n## Pyramid Alignment\n\nSo, what if we want to be more accurate, while still retaining a fast alignment algorithm? Well, we've actually already seen some of the intuition! Consider when we divided by a factor of 4, giving us an error of $\\pm$4 pixels on a search area of 200? Well, in that case, if we just searched the 4 nearest deltas *around* the alignment we found, we could be quite confident* we'd bump into the actual best alignment!\n\nExtrapolating this out, we can build an entire structure using this logic. By starting with an extremely low resolution version of the image, we can check a very large range of potential alignments very quickly! Then, we can take the best alignment found out of those, and search the neighborhood around it with a higher resolution version of the image. Then, repeat! Continuing up the resolution pyramid, eventually we will get to the full resolution version of the image. The result is an incredibly good approximation of the best possible alignment!"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Screenshot-2026-09-29-at-12.06.54-AM.png",
+      "alt": "",
+      "caption": "Consider aligning the red and black squares, which are each filled in with 20 yellow pixels, just on opposite corners. When you use pyramid alignment, you can very quickly narrow down the search space, since the number of low resolution permutations is small! "
+    },
+    {
+      "type": "text",
+      "md": "We will downsample the image by 2 for every level of the pyramid. While we can just shrink the image by 2, similarly to what we did for the Single Scale Alignment, a better approach is to first use a blur (in this case, the Gaussian) in order to better preserve the overall image structure while reducing high-frequency details that could cause aliasing during downsampling:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "# find the number of levels, we floor at 200 pixels to prevent loss of too much information\nlevels = max(1, int(math.log2(min(anchor.shape[:2]) / 200)) + 1)\n\n# we will store the pyramids as arrays\nanchor_pyr = [anchor.astype(np.float32)]\ncand_pyr = [cand.astype(np.float32)]\n\nfor _ in range(1, levels):\n    # blur the image first, using a 5x5 Gaussian kernel\n    anchor_blur = cv2.GaussianBlur(anchor_pyr[-1], (5, 5), 0)\n    cand_blur = cv2.GaussianBlur(cand_pyr[-1], (5, 5), 0)\n    # then downsample the pixels\n    anchor_pyr.append(anchor_blur[::2, ::2])\n    cand_pyr.append(cand_blur[::2, ::2])\n"
+    },
+    {
+      "type": "text",
+      "md": "Now that we have our pyramid, we can get to the meat and potatoes: actually performing our coarse-to-fine search!\n\nWe start at the coarsest level, where a fairly large search radius is necessary. In my case, $25$ pixels was enough to catch the largest offsets. But using that same $25$-pixel radius at every level would get expensive quickly. While the number of candidate shifts would remain the same at $51^2=2601$, each NCC calculation becomes more expensive as we move to finer levels, since each image contains more pixels. Luckily, it's less important to search such a large area anymore, since the coarser level has already given us a good estimate of the alignment, and the finer levels only need to make smaller corrections. Therefore, after scaling the previous shift by $2$ to account for the increased resolution, we search a much smaller neighborhood around it. In my case, a $5$-pixel radius performed well. We repeat this process until we reach the original resolution:\n"
+    },
+    {
+      "type": "slideshow",
+      "slides": [
+        {
+          "src": "content/images/31421v.jpg",
+          "alt": "",
+          "caption": "G offset: (0, 8), R offset: (0, 13)"
+        },
+        {
+          "src": "content/images/01598v.jpg",
+          "alt": "",
+          "caption": "G offset: (0, 8), R offset: (-1, 16)"
+        },
+        {
+          "src": "content/images/10131v.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 6), R offset: (3, 12)"
+        },
+        {
+          "src": "content/images/00804v.jpg",
+          "alt": "",
+          "caption": "G offset: (-2, 6), R offset: (-4, 13)"
+        },
+        {
+          "src": "content/images/01269v.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 6), R offset: (3, 14)"
+        },
+        {
+          "src": "content/images/00458u-2.jpg",
+          "alt": "",
+          "caption": "G offset: (6, 42), R offset: (32, 87)"
+        },
+        {
+          "src": "content/images/01861a.jpg",
+          "alt": "",
+          "caption": "G offset: (39, 71), R offset: (63, 148)"
+        },
+        {
+          "src": "content/images/00163v.jpg",
+          "alt": "",
+          "caption": "G offset: (1, -3), R offset: (1, -4)"
+        },
+        {
+          "src": "content/images/01725u.jpg",
+          "alt": "",
+          "caption": "G offset: (44, 77), R offset: (77, 162)"
+        },
+        {
+          "src": "content/images/01007a.jpg",
+          "alt": "",
+          "caption": "G offset: (14, 60), R offset: (13, 129)"
+        },
+        {
+          "src": "content/images/01728v.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 8), R offset: (1, 18)"
+        },
+        {
+          "src": "content/images/01047u.jpg",
+          "alt": "",
+          "caption": "G offset: (20, 24), R offset: (33, 71)"
+        },
+        {
+          "src": "content/images/01657u.jpg",
+          "alt": "",
+          "caption": "G offset: (9, 55), R offset: (12, 117)"
+        },
+        {
+          "src": "content/images/01522v.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 6), R offset: (2, 13)"
+        },
+        {
+          "src": "content/images/01164v.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 6), R offset: (3, 11)"
+        },
+        {
+          "src": "content/images/00125v.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 5), R offset: (1, 10)"
+        },
+        {
+          "src": "content/images/00056v.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 5), R offset: (1, 13)"
+        },
+        {
+          "src": "content/images/01597v.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 7), R offset: (1, 16)"
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Note image 17, a particularly challenging photo because of the large stains on it. Thanks to the power of NCC, we still get a fairly well aligned photo, that is at least well aligned, but unfortunately since we still just collate on top, the large stain remains, and one could consider this a failure case. One very simple way to try and repair this is by dropping the Green channel's data, which contains the majority of the stain. Instead, we can use an estimate of $(Blue + 3 * Red)/4$ for Green, resulting in a cleaner, but less accurately colored final image:"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/00056v-6.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/00056v-7.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/00056v-8.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "We can remove the stain, but at the cost of color accuracy..."
+    },
+    {
+      "type": "text",
+      "md": "However, since this drops way too much information for no gain on other images, this is not a  generalizable optimization.\n\n## Bells and Whistles\n\nThe above technique faces a few problems other than just staining.\n1. Our initial assumption that we can just splice the images into 3 may be incorrect. Since each image may not actually perfectly occupy 1/3 of the original trio, you can get images cut off (or overextended) at the top and bottom.\n2. Notice the ugly dark borders (both white and black) around each image, which we were forced to keep to preserve our image edges after blindly cropping off 1/12th of each image segment. \n3. Since each image may not have been taken perfectly planar to the rest (after all, we needed to align them) some images have details others don't, resulting in heavy bleeding around the edges.\n\nTurns out, we can solve all of these problems using better initial cropping!\n### Automatic Cropping\nInstead of naively cropping in thirds, we can instead try to detect the actual edges between each of the images, and crop along those lines. Then, we find a common crop into all 3 images such that we can guarantee that not do we only have non-border, overlapping values within each crop, but we are also not losing any non-border (or non-overlapping image) pixels outside of it. Note that we don't actually care about non-border non-overlapping pixels since they have incomplete color information anyways. \n\nBut let's not get ahead of ourselves. Let's split the images first:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def split_images(image):\n    h = image.shape[0]\n\n    # compute the mean intensity of every row\n    profile = image.astype(np.float32).mean(axis=1)\n    d = max(2, h // 150)\n\n    # find dark rows that could separate the three exposures\n    trough = np.zeros(h)\n    trough[d : h - d] = (profile[: h - 2 * d] + profile[2 * d :]) / 2 - profile[\n        d : h - d\n    ]\n\n    best = (-np.inf, 0, h // 3)\n\n    # search for the two gaps between the exposures\n    for pitch in range(int(h / 3.15), h // 3 + 1):\n        n = h - 3 * pitch + 1\n\n        score = np.minimum(trough[pitch : pitch + n], trough[2 * pitch : 2 * pitch + n])\n\n        start = np.argmax(score)\n\n        if score[start] > best[0]:\n            best = (score[start], start, pitch)\n\n    _, start, pitch = best\n\n    return [image[start + k * pitch : start + (k + 1) * pitch] for k in range(3)]"
+    },
+    {
+      "type": "text",
+      "md": "We first compute the mean intensity of every row, giving us a one-dimensional intensity profile. We then look for rows that are significantly darker than the rows around them by comparing each row against the average of two rows a small distance away. These dark regions correspond to the gaps between the three exposures. Since there are two gaps and they should be separated by approximately one third of the image height, we search over a small range of possible plate heights. For each candidate height, we find the positions where both expected gaps are darkest, and choose the height and starting position that produce the strongest pair of troughs. We can then split the original image using these detected boundaries, giving us three plates that are aligned to their actual exposure boundaries rather than assuming that all three occupy exactly one third of the source image.\n\nBut these plates still have the black and white borders around them, so to get rid of them, we need to find their common area:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def detect_common_crop(images):\n\n    # handpicked values for the inner and outer black and white respectively\n    inner_border = 64\n    outer_border = 245\n\n    h = min(img.shape[0] for img in images)\n    w = min(img.shape[1] for img in images)\n\n    # stack the images so their borders can be compared\n    stack = np.stack([p[:h, :w] for p in images]).astype(np.float32)\n\n    # mark pixels that look like black or white border material\n    borderline = (stack < inner_border) | (stack > outer_border)\n\n    rows = borderline.mean(axis=2).max(axis=0) > 0.5\n    cols = borderline.mean(axis=1).max(axis=0) > 0.5\n\n    # extend border detections to cover slightly thicker edges\n    k = max(3, int(0.02 * h))\n    rows = np.logical_or.reduce(\n        [np.r_[rows, np.zeros(k, bool)][i : i + h] for i in range(k)]\n    )\n\n    k = max(3, int(0.02 * w))\n    cols = np.logical_or.reduce(\n        [np.r_[cols, np.zeros(k, bool)][i : i + w] for i in range(k)]\n    )\n\n    # remove border rows and columns near the outside\n    top = 0\n    while top < 0.1 * h and rows[top]:\n        top += 1\n\n    left = 0\n    while left < 0.1 * w and cols[left]:\n        left += 1\n\n    bottom = h\n    while bottom > 0.9 * h and rows[bottom - 1]:\n        bottom -= 1\n\n    right = w\n    while right > 0.9 * w and cols[right - 1]:\n        right -= 1\n\n    return left, top, right, bottom\n"
+    },
+    {
+      "type": "text",
+      "md": "For each plate, we first estimate its border intensity from small patches in the four corners. We then construct a binary mask marking pixels that look like border material, including pixels close to the estimated border intensity and pixels that are extremely dark or bright ( empirically found values inner_border and outer_border respectively). Connected components let us distinguish these border regions from similar-looking pixels inside the photograph by keeping only components that actually touch the edge of the plate. We invert this mask to obtain a valid-pixel mask for each plate, then take the intersection of the three masks so that a pixel is considered valid only when all three exposures contain real image data there. Finally, we examine the fraction of valid pixels in each row and column and trim the outer edges where this fraction becomes too small. The result is a common rectangular crop that contains only the region shared by all three exposures, removing the need for an arbitrary fixed crop while also ensuring that every remaining pixel has valid data in all three color channels."
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/6blue.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/6green.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/6red.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "Splitting the train set into 3, with better cropping. Notice how the black border is not preserved, although some image artifacts still remain."
+    },
+    {
+      "type": "text",
+      "md": "It goes without saying that with this new cropping technique, we no longer need to crop into the image, which fully resolves our earlier concerns about losing alignment data from the edges. But notice that now that we have a guarantee that our images are all desired data, we can also guarantee that after alignment, any details/edges that jut out are guaranteed to be missing at least 1 color variable, and so can be safely cropped out of our final image, along with the black/white edges we cut out earlier.\n\nPutting this together, we get much cleaner images:"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/10131v-1.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/10131v-2.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "Left: our original cropping technique. Right: our new, dynamic cropping technique"
+    },
+    {
+      "type": "text",
+      "md": "Code for single scale alignment can be found [here]() and pyramid alignment can be found [here](). \nAll final images from the crop improved pyramid scale alignment can be found [here]() or below:"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/00056v-9.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 2), R offset: (1, 7)"
+        },
+        {
+          "src": "content/images/00125v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 1), R offset: (1, 2)"
+        },
+        {
+          "src": "content/images/00163v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (1, -5), R offset: (1, -8)"
+        },
+        {
+          "src": "content/images/00458u-3.jpg",
+          "alt": "",
+          "caption": "G offset: (6, 27), R offset: (32, 55)"
+        },
+        {
+          "src": "content/images/00804v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (-2, 4), R offset: (-4, 9)"
+        },
+        {
+          "src": "content/images/01007a-1.jpg",
+          "alt": "",
+          "caption": "G offset: (14, 7), R offset: (13, 21)"
+        },
+        {
+          "src": "content/images/01047u-1.jpg",
+          "alt": "",
+          "caption": "G offset: (20, 9), R offset: (33, 42)"
+        },
+        {
+          "src": "content/images/01164v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 5), R offset: (3, 9)"
+        },
+        {
+          "src": "content/images/01269v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 3), R offset: (3, 7)"
+        },
+        {
+          "src": "content/images/01522v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 3), R offset: (2, 7)"
+        },
+        {
+          "src": "content/images/01597v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 2), R offset: (1, 6)"
+        },
+        {
+          "src": "content/images/01598v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (0, 3), R offset: (-1, 6)"
+        },
+        {
+          "src": "content/images/01657u-1.jpg",
+          "alt": "",
+          "caption": "G offset: (8, 3), R offset: (12, 5)"
+        },
+        {
+          "src": "content/images/01725u-1.jpg",
+          "alt": "",
+          "caption": "G offset: (44, 16), R offset: (77, 40)"
+        },
+        {
+          "src": "content/images/01728v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (1, 3), R offset: (1, 8)"
+        },
+        {
+          "src": "content/images/01861a-1.jpg",
+          "alt": "",
+          "caption": "G offset: (39, 29), R offset: (63, 62)"
+        },
+        {
+          "src": "content/images/10131v-3.jpg",
+          "alt": "",
+          "caption": "G offset: (2, 0), R offset: (3, -1)"
+        },
+        {
+          "src": "content/images/31421v-1.jpg",
+          "alt": "",
+          "caption": "G offset: (0, 5), R offset: (0, 7)"
+        }
+      ],
+      "caption": ""
     }
   ]
 }

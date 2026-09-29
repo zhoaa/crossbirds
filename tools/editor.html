@@ -149,16 +149,20 @@ const SCHEMA = {
   image:     { label:'Image',     hint:'One figure',
                fields:[ { k:'src', t:'image', label:'File' },
                         { k:'alt', t:'text', label:'Alt text' },
-                        { k:'caption', t:'text', label:'Caption' } ] },
+                        { k:'caption', t:'text', label:'Caption' },
+                        { k:'height', t:'number', label:'Height (px)', placeholder:'auto' } ] },
   gallery:   { label:'Gallery',   hint:'Grid, click to enlarge',
                fields:[ { k:'images', t:'items', label:'Images',
-                          item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'} ] },
-                        { k:'caption', t:'text', label:'Caption' } ] },
+                          item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'},
+                                 {k:'caption',t:'text',placeholder:'Caption (optional)'} ] },
+                        { k:'caption', t:'text', label:'Caption' },
+                        { k:'height', t:'number', label:'Row height (px)', placeholder:'auto' } ] },
   slideshow: { label:'Slideshow', hint:'Arrows, dots, keyboard',
                fields:[ { k:'slides', t:'items', label:'Slides',
                           item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'},
                                  {k:'caption',t:'text',placeholder:'Caption'} ] },
-                        { k:'caption', t:'text', label:'Fallback caption' } ] },
+                        { k:'caption', t:'text', label:'Fallback caption' },
+                        { k:'height', t:'number', label:'Height (px)', placeholder:'auto' } ] },
   math:      { label:'Math',      hint:'Display equation, LaTeX',
                fields:[ { k:'tex', t:'code', label:'LaTeX', placeholder:'E = mc^2' },
                         { k:'caption', t:'text', label:'Caption' } ] },
@@ -414,6 +418,11 @@ function field(f, b, i) {
         <input type="text" data-i="${i}" data-k="${f.k}" data-list="1"
           value="${esc((v || []).join(', '))}" placeholder="${esc(f.placeholder)}"></label>`;
 
+    case 'number':
+      return `<label class="f narrow">${label}
+        <input type="number" data-i="${i}" data-k="${f.k}" min="40" step="10"
+          value="${esc(v)}" placeholder="${esc(f.placeholder)}"></label>`;
+
     case 'image':
       return `<div class="f">${label}${imageField(v, { i, k:f.k })}</div>`;
 
@@ -474,6 +483,7 @@ function wireBlocks() {
       const { i, k, j, sub } = el.dataset;
       let val = el.type === 'checkbox' ? el.checked : el.value;
       if (el.dataset.list) val = val.split(',').map(s => s.trim()).filter(Boolean);
+      if (el.type === 'number') val = el.value === '' ? null : Math.round(+el.value);
       if (j !== undefined) doc.blocks[i][k][j][sub] = val;
       else doc.blocks[i][k] = val;
       paintDirty();
