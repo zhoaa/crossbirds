@@ -8,10 +8,46 @@
       "md": "# 1. Becoming Friends with your Camera\n"
     },
     {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/PXL_20260929_154043491.RAW-01.COVER.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/PXL_20260929_154107408.RAW-01.COVER.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "As I get closer / farther down the hallway, everything has greater depth, and we can see more details appear on the walls!"
+    },
+    {
+      "type": "text",
+      "md": "## ii. Architectural Perspective Compression"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/PXL_20260929_154043491.RAW-01.COVER.jpg",
+          "alt": ""
+        },
+        {
+          "src": "content/images/PXL_20260929_154107408.RAW-01.COVER.jpg",
+          "alt": ""
+        }
+      ],
+      "caption": "As I get closer / farther down the hallway, everything has greater depth, and we can see more details appear on the walls!"
+    },
+    {
+      "type": "text",
+      "md": "## iii. Dolly Zoom\n"
+    },
+    {
       "type": "image",
-      "src": "content/images/A6B35672-7D29-42C6-AA13-7477EE50EDC6.png",
+      "src": "content/images/20260929_033819-ANIMATION-aligned.gif",
       "alt": "",
-      "caption": "",
+      "caption": "Just like in ii, the background slowly gets flatter and flatter as I get farther away! ",
       "height": null
     },
     {
@@ -317,7 +353,7 @@
     },
     {
       "type": "text",
-      "md": "Code for single scale alignment can be found [here]() and pyramid alignment can be found [here](). \nAll final images from the crop improved pyramid scale alignment can be found [here]() or below:"
+      "md": "Code for single scale alignment can be found [here](https://github.com/zhoaa/crossbirds/blob/main/syde671_contents/assignment1/singlescale.py) and pyramid alignment can be found [here](https://github.com/zhoaa/crossbirds/blob/main/syde671_contents/assignment1/pyramid.py). \nAll final images from the crop improved pyramid scale alignment can be found [here](https://github.com/zhoaa/crossbirds/tree/main/syde671_contents/assignment1/pyramid_images) or below:"
     },
     {
       "type": "gallery",

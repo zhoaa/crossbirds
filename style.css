@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap');
 :root {
-  --sky:#c8dcdb; --ink:#172d30; --white:#f7fcfb; --bark:#24393a;
+  --sky:#c8dcdb; --ink:#172d30; --white:#f7fcfb; --bark:#24393a; --link:#1a5aa6;
   --blue:#a8d4e7; --red:#efbbb2; --green:#b9dfb5;
   --panel:rgba(247,252,251,.62);
   --panel-solid:#eaf6f4;
@@ -124,9 +124,9 @@ nav a:first-child::before { content:'← '; }
 .prose p { margin:0 0 1.05em; }
 .prose h2, .prose h3 { margin:1.7em 0 .5em; letter-spacing:-.02em; line-height:1.25; }
 .prose h2 { font-size:1.5rem; } .prose h3 { font-size:1.2rem; }
-.prose a { color:var(--ink); text-decoration:underline;
-  text-decoration-color:var(--soft); text-underline-offset:3px; }
-.prose a:hover { text-decoration-color:var(--ink); }
+.prose a { color:var(--link); text-decoration:underline;
+  text-decoration-color:rgba(26,90,166,.35); text-underline-offset:3px; }
+.prose a:hover { text-decoration-color:var(--link); }
 .prose ul, .prose ol { padding-left:1.25em; margin:0 0 1.05em; }
 .prose li { margin-bottom:.35em; }
 .prose img { max-width:100%; border-radius:10px; display:block; margin:1.4em 0; }
