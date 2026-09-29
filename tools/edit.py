@@ -31,7 +31,10 @@ SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 ALLOWED_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"}
-MAX_UPLOAD = 12 * 1024 * 1024
+# Big enough for a long GIF; GitHub warns on files over 50 MB and refuses
+# them over 100 MB. The request body is base64, a third larger again.
+MAX_UPLOAD = 50 * 1024 * 1024
+MAX_BODY = MAX_UPLOAD * 4 // 3 + 64 * 1024
 
 # Only these paths are ever staged. Keeps a stray .env or key out of a
 # commit made by one click, and keeps the diff reviewable.
@@ -229,9 +232,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
-        if n > MAX_UPLOAD:
-            raise ValueError("payload too large")
-        return json.loads(self.rfile.read(n) or b"{}")
+        raw = self.rfile.read(n)
+        # Read it all before refusing: replying mid-upload makes the browser
+        # see a dropped connection instead of this message.
+        if n > MAX_BODY:
+            raise ValueError(f"file too large (limit {MAX_UPLOAD // 2**20} MB)")
+        return json.loads(raw or b"{}")
 
     @staticmethod
     def slug_from(path: str) -> str:
@@ -375,7 +381,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not blob:
             return self.fail(400, "file is empty")
         if len(blob) > MAX_UPLOAD:
-            return self.fail(413, "file too large")
+            return self.fail(413, f"file too large (limit {MAX_UPLOAD // 2**20} MB)")
 
         IMAGES.mkdir(parents=True, exist_ok=True)
         target = IMAGES / name
