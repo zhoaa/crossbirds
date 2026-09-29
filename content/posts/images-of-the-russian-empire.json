@@ -11,15 +11,31 @@
       "type": "gallery",
       "images": [
         {
-          "src": "content/images/PXL_20260929_154043491.RAW-01.COVER.jpg",
+          "src": "content/images/PXL_20260929_224555926.RAW-01.COVER.jpg",
           "alt": ""
         },
         {
-          "src": "content/images/PXL_20260929_154107408.RAW-01.COVER.jpg",
-          "alt": ""
+          "src": "content/images/2-2.jpg",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/3-1.jpg",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/4-1.jpg",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/5.jpg",
+          "alt": "",
+          "caption": ""
         }
       ],
-      "caption": "As I get closer / farther down the hallway, everything has greater depth, and we can see more details appear on the walls!"
+      "caption": "The farther away the camera is, the less distorted Tangy is. Special thank you to Tangy for helping me with these pictures."
     },
     {
       "type": "text",
