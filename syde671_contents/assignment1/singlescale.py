@@ -49,8 +49,8 @@ def align(anchor, cand):
     return best_score, best_shift
 
 
-input_folder = Path(r"/Users/aaronzhou/development/w27-school/syde671/data/data 2")
-output_folder = Path(r"/Users/aaronzhou/development/w27-school/syde671/outpput5")
+input_folder = Path(r"[INPUT FOLDER]")
+output_folder = Path(r"[OUTPUT FOLDER]")
 
 for path in sorted(input_folder.iterdir()):
 
