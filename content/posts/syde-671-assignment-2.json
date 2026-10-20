@@ -313,6 +313,22 @@
       "code": "def gaussian_stack(image, levels, kernel_size):\n    stack = [image]\n    for _ in range(levels - 1):\n        stack.append(cv2.GaussianBlur(stack[-1], kernel_size, 0))\n    return stack"
     },
     {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/gaussian_apple-1.png",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/gaussian_orange-1.png",
+          "alt": "",
+          "caption": ""
+        }
+      ],
+      "caption": ""
+    },
+    {
       "type": "text",
       "md": "The Laplacian stack is then constructed by subtracting the levels of the Gaussian stack from each other:"
     },
@@ -320,6 +336,22 @@
       "type": "code",
       "language": "python",
       "code": "def laplacian_stack(gaussian):\n    stack = []\n    for i in range(len(gaussian) - 1):\n        stack.append(gaussian[i] - gaussian[i + 1])\n    stack.append(gaussian[-1])\n    return stack"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/laplacian_apple.png",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/laplacian_orange.png",
+          "alt": "",
+          "caption": ""
+        }
+      ],
+      "caption": "Note the final Laplacian is the Level 4 Gaussian image."
     },
     {
       "type": "text",
@@ -337,15 +369,15 @@
     {
       "type": "code",
       "language": "python",
-      "code": "apple_g = gaussian_stack(apple, 5, (9,9))\norange_g = gaussian_stack(orange, 5, (9,9))\nmask_g = gaussian_stack(mask, 5, (301, 301))\n\napple_l = laplacian_stack(apple_g)\norange_l = laplacian_stack(orange_g)\n"
+      "code": "apple_g = gaussian_stack(apple, 5, (15, 15))\norange_g = gaussian_stack(orange, 5, (15, 15))\nmask_g = gaussian_stack(mask, 5, (301, 301))\n\napple_l = laplacian_stack(apple_g)\norange_l = laplacian_stack(orange_g)\n"
     },
     {
       "type": "text",
-      "md": "Note that I used pretty small blur on the apple and orange, but a pretty large blur on the mask. I found this worked quite well. In order to create our own version of Figure 10 of the paper, we had to take layer 0 of the apple and orange, then combine them, layer 2 of the apple and orange, then combine those, layer 4 of the apple and orange, then combine those, and finally combine all of the layers together in order to form a final blended orapple:"
+      "md": "Note that I used pretty small blur on the apple and orange, but a pretty large blur on the mask. I found these numbers worked quite well. In order to create our own version of Figure 10 of the paper, we had to take layer 0 of the apple and orange, then combine them, layer 2 of the apple and orange, then combine those, layer 4 of the apple and orange, then combine those, and finally combine all of the layers together in order to form a final blended orapple:"
     },
     {
       "type": "image",
-      "src": "content/images/orapple_decomposed_grid.jpg",
+      "src": "content/images/orapple_decomposed_grid-1.jpg",
       "alt": "",
       "caption": "Note that as discussed in the paper, I had to use a contrast filter in order to better see the images. Also I noticed that on my computer the layer 0 details sometimes are too fine to render, and I have to zoom in before my computer decides to render them."
     },
@@ -355,7 +387,7 @@
     },
     {
       "type": "image",
-      "src": "content/images/oraple_blended.jpg",
+      "src": "content/images/orapple.jpg",
       "alt": "",
       "caption": ""
     },
