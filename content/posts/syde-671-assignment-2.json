@@ -19,7 +19,7 @@
     {
       "type": "code",
       "language": "python",
-      "code": "def fourLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad), (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            for k in range(len(kernel)):\n                for l in range(len(kernel[0])):\n                    output[i-kernel_height_pad, j-kernel_width_pad] += padded_image[i+k-kernel_height_pad][j+l-kernel_width_pad] * kernel[k][l]\n    return output"
+      "code": "def fourLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad),\n                   (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            for k in range(len(kernel)):\n                for l in range(len(kernel[0])):\n                    output[i-kernel_height_pad, j-kernel_width_pad] +=\n                    padded_image[i+k-kernel_height_pad][j+l-kernel_width_pad]\n                    * kernel[k][l]\n    return output"
     },
     {
       "type": "text",
@@ -28,7 +28,7 @@
     {
       "type": "code",
       "language": "python",
-      "code": "def twoLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad), (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            output[i-kernel_height_pad, j-kernel_width_pad] = np.sum(np.multiply(padded_image[i-kernel_height_pad:i+kernel_height_pad+1, j-kernel_width_pad:j+kernel_width_pad+1], kernel))\n    return output"
+      "code": "def twoLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad), (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            output[i-kernel_height_pad, j-kernel_width_pad] = np.sum(np.multiply(\n            padded_image[i-kernel_height_pad:i+kernel_height_pad+1,\n            j-kernel_width_pad:j+kernel_width_pad+1], kernel))\n    return output"
     },
     {
       "type": "text",
