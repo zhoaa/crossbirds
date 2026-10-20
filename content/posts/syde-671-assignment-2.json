@@ -37,7 +37,7 @@
     {
       "type": "code",
       "language": "python",
-      "code": "convolve = scipy.signal.convolve2d(input_image, box_filter, mode=\"same\", boundary='fill', fillvalue=0)\n"
+      "code": "convolve = scipy.signal.convolve2d(input_image, box_filter, mode=\"same\",\n                                   boundary='fill', fillvalue=0)\n"
     },
     {
       "type": "text",
