@@ -236,7 +236,7 @@
     },
     {
       "type": "text",
-      "md": "## Part 2.2: Hybrid Images\nWe want to create some Franken-images! These images show one image when you're close, but show another when you're far away!\n\nOur first step is to align the images as much as possible. For this, we were given a MATLAB code section, that we then converted to Python. This allows us to align our images together based on 2 points of the image. The code is too large to display here, but the file can be found at [LINK]. We note that for the operations we want (translation, uniform scaling, rotation) for image alignment, we need 4 degrees of freedom, which means that 2 points (4 equations) is enough to align the two images:"
+      "md": "## Part 2.2: Hybrid Images\nWe want to create some Franken-images! These images show one image when you're close, but show another when you're far away!\n\nOur first step is to align the images as much as possible. For this, we were given a MATLAB code section, that I then converted to Python. This allows us to align our images together based on 2 points of the image. The code is too large to display here, but the file can be found [here](https://github.com/zhoaa/crossbirds/blob/main/syde671_contents/assignment2/assignment2-2.2.py) in the align_images() function. We note that for the operations we want (translation, uniform scaling, rotation) for image alignment, we need 4 degrees of freedom, which means that 2 points (4 equations) is enough to align the two images:"
     },
     {
       "type": "image",
@@ -423,7 +423,7 @@
     },
     {
       "type": "text",
-      "md": "I think the grayscale one looks significantly better up close, since when you flatten the image into monochrome it's much harder to tell that there are defects/stains. That being said, aesthetically the full color one does look quite a bit nicer from afar and it has that pop that I like. "
+      "md": "I think the grayscale one looks significantly better up close, since when you flatten the image into monochrome it's much harder to tell that there are defects/stains. That being said, aesthetically the full color one does look quite a bit nicer from afar and it has that pop that I like. \n\nFinal code for this assignment can be found [here](https://github.com/zhoaa/crossbirds/blob/main/syde671_contents/assignment2/), separated out by the question number (some questions may share the same file since they use a lot of the same code). "
     }
   ]
 }
