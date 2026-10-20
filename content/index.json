@@ -27,6 +27,14 @@
   ],
   "posts": [
     {
+      "slug": "syde-671-assignment-2",
+      "title": "SYDE 671 Assignment 2",
+      "date": "2026-10-19",
+      "bird": "coursework",
+      "summary": "Fun with Filters and Frequencies!",
+      "cover": null
+    },
+    {
       "slug": "images-of-the-russian-empire",
       "title": "SYDE 671 Assignment 1",
       "date": "2026-09-28",

@@ -1,0 +1,397 @@
+{
+  "title": "SYDE 671 Assignment 2",
+  "date": "2026-10-19",
+  "bird": "coursework",
+  "blocks": [
+    {
+      "type": "text",
+      "md": "# Part 1: Fun with Filters!\n\n## Part 1.1: Convolutions from Scratch!\n\nIn this section, we'll create our own convolution functions. First, let's define our filters, representing each as a simple numpy 2D array:\n"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "box_filter = np.full((9, 9), 1/81)\ndX_filter = [[1, 0, -1]]\ndY_filter = [[1], [0], [-1]]"
+    },
+    {
+      "type": "text",
+      "md": "Now, let's make a four loop version. In order to do a convolution, we want to \"convolve\" our image by running a kernel over it, multiplying the kernel's values in place over each section. But first, we need to flip the kernel as per the definition of convolution, using np.flip().\n\nNote also that we want to pad with 0s here, so we first pad the image by half of the kernel's width and height using np.pad(), which adds 0s accordingly around the matrix.\n\nThen, for each pixel (i, j) in the image, we map the pixels around it to the corresponding kernel values (k, l), taking the sum of products in order to find our final convolved image."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def fourLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad), (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            for k in range(len(kernel)):\n                for l in range(len(kernel[0])):\n                    output[i-kernel_height_pad, j-kernel_width_pad] += padded_image[i+k-kernel_height_pad][j+l-kernel_width_pad] * kernel[k][l]\n    return output"
+    },
+    {
+      "type": "text",
+      "md": "But we can make this shorter: Using the numpy's sum() and multiply() commands, as well as Python's native array slicing, we can transform the last 2 for loops into one line, which does all the matrix calculation at once."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def twoLoop(image, kernel):\n    kernel = np.flip(kernel, axis=(0, 1))\n    output = np.zeros_like(image, dtype=np.float64)\n\n    kernel_height_pad = math.floor(len(kernel)/2)\n    kernel_width_pad = math.floor(len(kernel[0])/2)\n    padded_image = np.pad(image, pad_width=((kernel_height_pad, kernel_height_pad), (kernel_width_pad, kernel_width_pad)))\n\n    for i in range(kernel_height_pad, len(padded_image)-kernel_height_pad):\n        for j in range(kernel_width_pad, len(padded_image[0])-kernel_width_pad):\n            output[i-kernel_height_pad, j-kernel_width_pad] = np.sum(np.multiply(padded_image[i-kernel_height_pad:i+kernel_height_pad+1, j-kernel_width_pad:j+kernel_width_pad+1], kernel))\n    return output"
+    },
+    {
+      "type": "text",
+      "md": "For validation, we compare to Scipy's convolve2D() using the following parameters:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "convolve = scipy.signal.convolve2d(input_image, box_filter, mode=\"same\", boundary='fill', fillvalue=0)\n"
+    },
+    {
+      "type": "text",
+      "md": "Note for numerical validation that we have to use np.allclose() instead of np.equal(), since differences in floating point numbers are unavoidable, but thankfully, negligible. We also include a maximum difference analysis to make sure that the differences and substantially small."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "print(np.allclose(fourloop, twoloop))\nprint(\"Max diff:\", np.max(np.abs(fourloop.astype(float) - twoloop.astype(float)))) \n# Output:\n# True \n# Max diff: 4.547473508864641e-13\n\nprint(np.allclose(convolve, twoloop))\nprint(\"Max diff:\", np.max(np.abs(convolve.astype(float) - twoloop.astype(float))))\n# Output:\n# True\n# Max diff: 1.7053025658242404e-13"
+    },
+    {
+      "type": "text",
+      "md": "Finally, let's take a look at some images:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row.png",
+      "alt": "",
+      "caption": "Me, getting convolved by the box filter"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row-1.png",
+      "alt": "",
+      "caption": "Me, getting convolved by the dX filter"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row-2.png",
+      "alt": "",
+      "caption": "Me, getting convolved by the dY filter"
+    },
+    {
+      "type": "text",
+      "md": "Yay! Now, for timing, we find for the above image that:\n\n| Filter &nbsp;&nbsp;&nbsp;&nbsp;|Four Loop&nbsp;&nbsp;&nbsp;&nbsp; | Two Loop &nbsp;&nbsp;&nbsp;&nbsp;| convolve2d |\n| ------ | ----------- | ---------- | ------------ |\n| Box | 10.8581 s | 0.6785 s | 0.9864 s |\n| dX | 0.4872 s | 0.7093 s | 0.9594 s |\n| dY | 0.7212 s | 0.6567 s | 0.9468 s |\n\nInterestingly, for low resolution images, my naive Python approach actually is faster than scipy's optimized C approach. This is likely due to extra overhead and startup costs from scipy, such as error handling and bound checking that my functions do not do, while the overall speed increase from the more efficient function is not as felt, since there's less actual image to iterate on overall.\nThat being said, if we measure a larger image (27x larger version of the image above):\n| Filter &nbsp;&nbsp;&nbsp;&nbsp;|Four Loop&nbsp;&nbsp;&nbsp;&nbsp; | Two Loop &nbsp;&nbsp;&nbsp;&nbsp;| convolve2d |\n| ------ | ----------- | ---------- | ------------ |\n| Box    | 303.3378 s  | 18.3306 s  | 1.8910 s     |\n| dX     | 14.2859 s   | 18.2045 s  | 1.1056 s     |\n| dY     | 16.1182 s   | 18.3177 s  | 1.1668 s     |\n\nWe see that the times of the two Python functions increase heavily with the size of the image, whereas due to the optimizations in convolve2d, its time goes up comparatively much less. \nIn both cases, twoLoop heavily outperforms fourLoop in the box filter, since fourLoop has to go through 81 individual additions per image pixel, whereas twoLoop does two calls to optimized numpy operations in order to quickly product and sum. However, for the same reason that convolve2d is worse with the smaller images, we also notice that twoLoop is comparatively worse than fourLoop in the dX and dY case, where fourLoop can just quickly do 3 operations, while now the numpy operations become a burden to twoLoop, since it now has extra overhead for a relatively small calculation. \nAdditional interesting points to note are that dX is faster than dY with fourLoop, since spatial locality in memory allocation means that it's faster to find adjacent elements in rows than in columns, whereas for twoLoop, all 3 filters are approximately the same latency. This makes sense, since the burden of time is on the initialization of the numpy operations, so the bulk of the time is constant with respect to the size of the image matrix (as it iterates through every single element of the matrix).\n\n## Part 1.2: Finite Difference Operator\nFor this next part, we will find the edges of the cameraman image using convolutions of D_x and D_y as defined above. Since these detect vertical and horizontal edges respectively, if we take the combined gradient magnitude of both of these convolutions, we can get a good understanding of all edges. But simply applying both filters together gives us a somewhat blurry result:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "I_x = scipy.signal.convolve2d(input_image, dX_filter, mode=\"same\")\nI_y = scipy.signal.convolve2d(input_image, dY_filter, mode=\"same\")\ngradient_mag = np.sqrt(I_x**2 + I_y**2)\n"
+    },
+    {
+      "type": "text",
+      "md": ""
+    },
+    {
+      "type": "image",
+      "src": "content/images/outline_bad.png",
+      "alt": "",
+      "caption": "Ew, why so fuzzy?"
+    },
+    {
+      "type": "text",
+      "md": "To get a clearer depiction of the lines, we can use a cutoff threshold. This means that all values above a certain threshold become white, while all values lower than some threshold become black. Through some experimentation, I found that 40 sufficiently captured all lines."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "thresholded = np.where(gradient_mag > 40, 255, 0)"
+    },
+    {
+      "type": "image",
+      "src": "content/images/outline.png",
+      "alt": "",
+      "caption": "Hmm... better..."
+    },
+    {
+      "type": "text",
+      "md": "But oh no! There is still quite a bit of noise in this image, particularly with the grass. While from an algorithm perspective, it can be understandable why the quickly changing colors of blades of grass are perceived as edges, we can do better with a trick: blurring! \n\n## Part 1.3: Derivative of Gaussian Filter \n\n\nNote that the edges we care about are those that are significantly divided over an extended area, and aren't just part of a pattern (like the grass). One way we can achieve this is to use a Gaussian blur in order to blend together less significant edges, before applying the gradient magnitude. \n\nNote that here we use the outer product of a 1D Gaussian kernel in order to create a 2D Gaussian kernel, which we then convolve over the original image, before convolving it with our other kernels."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "gauss_1d = cv2.getGaussianKernel(9, 1.5) # values determined from testing\ngauss_2d = np.outer(gauss_1d, gauss_1d.T)\nblurred = scipy.signal.convolve2d(input_image, gauss_2d, mode=\"same\")\nI_x = scipy.signal.convolve2d(blurred, dX_filter, mode=\"same\")\nI_y = scipy.signal.convolve2d(blurred, dY_filter, mode=\"same\")\ngradient_mag = np.sqrt(I_x**2 + I_y**2)\nthresholded_blurred = np.where(gradient_mag > 40, 255, 0)"
+    },
+    {
+      "type": "text",
+      "md": "But note we can actually do this in a more efficient fashion! Because convolutions are commutative with respect to differentiation, we can first convolve the much smaller Gaussian kernel instead of the image, to create two convolved Gaussian kernels, then finally convolve the original image with these two kernels, instead of convolving on the image twice:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "convolved_gaussian_X = scipy.signal.convolve2d(gauss_2d, dX_filter, mode=\"full\")\nconvolved_gaussian_Y = scipy.signal.convolve2d(gauss_2d, dY_filter, mode=\"full\")\nI_x = scipy.signal.convolve2d(input_image, convolved_gaussian_X, mode=\"same\")\nI_y = scipy.signal.convolve2d(input_image, convolved_gaussian_Y, mode=\"same\")\ngradient_mag = np.sqrt(I_x**2 + I_y**2)\nthresholded_single_conv = np.where(gradient_mag > 40, 255, 0)\n"
+    },
+    {
+      "type": "text",
+      "md": "We can confirm they result in the same output as below:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row-3.png",
+      "alt": "",
+      "caption": "The third image is the blurred version, while the fourth convolves the Gaussian kernel instead of the image twice. Note also how much cleaner the Blurred images are to the direct convolution."
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.3BW: Bells and Whistles\nLet's make an HSV map of the gradient magnitudes! We do this by first calculating the orientation of all of the gradients, by using arctan:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "orientation = np.arctan2(I_y, I_x)\nhsv = np.zeros((*I_x.shape, 3), dtype=np.float32)\nhsv[:, :, 0] = (orientation + np.pi) / (2 * np.pi)\nhsv[:, :, 1] = 1.0  \nhsv[:, :, 2] = 1.0 \n"
+    },
+    {
+      "type": "text",
+      "md": "Then, as above, all we need to do is create a chart of the same size as the image, mapping the orientation values onto hue values. Outputting this map, we get:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/gradient_hsv_simple.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "While it might be a little hard to see with all the colors, we can clearly see the outline of the man, camera, and background! We also notice that all the straight edges are the same color (most visible on the rightmost leg of the camera), which makes sense since straight edges will share their orientations, and thus their hues. We also notice some weird artifacting in the sky in the background. Looking closely at the original image, we can actually see that these are present on the original image:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/lines.png",
+      "alt": "",
+      "caption": "Upping the contrast on a section of the image makes it a lot more visible!"
+    },
+    {
+      "type": "text",
+      "md": "Since we only take orientation into account for this HSV, these grids (as well as non-edge values) get outputted at the same intensity as actual edges (whereas when we were measuring magnitude, these were too small to notice even on the non-thresholded image. We can somewhat fix this by restricting the output to high magnitude gradients (note this is not specified in the assignment so the code submitted just outputs the top image, this is just something I did for fun/verification):"
+    },
+    {
+      "type": "image",
+      "src": "content/images/gradient_hsv.png",
+      "alt": "",
+      "caption": "Admittedly not as clowntastic..."
+    },
+    {
+      "type": "text",
+      "md": "# Part 2: Fun with Frequencies!\n\n## Part 2.1: Image Sharpening\nWe saw before that the Gaussian allows us to blur images, but what if we want to sharpen images? Well, it seems unintuitive, but we can actually use the Gaussian again! Recall that the Gaussian filter is a low pass filter, which means it preserves low frequencies. Then, it stands to reason that if we subtracted the Gaussian of an image from the image itself, we'd be left with the high frequencies of the image! By increasing the high frequencies of an image, we can make it appear sharper, so all we need to do is add the difference of the Gaussian to an image in order to create a sharpened image! \n\nOne naive approach to this could be to just subtract the Gaussian convolution of the image from itself, but might there be a better way? Recall that convolutions are linear! Also recall, there is a convolution that does nothing to the image: the Identity convolution, which can be scaled to any odd NxN kernel size by placing a 1 in the middle with 0s filling the rest of the kernel matrix. Then, we can do both the subtraction of the Gaussian from the original image and the re-addition of the difference before we ever apply the kernel, by finding $I + (I - G)$, and using that as the kernel! For a 15 by 15 Gaussian kernel and the equation $2I - G$:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "gauss_1d = cv2.getGaussianKernel(15, 15.0) # arbitrary sigma that looked good\ngauss_2d = np.outer(gauss_1d, gauss_1d.T)\nsharpen_kernel = -1 * gauss_2d \nsharpen_kernel[7, 7] += 2 # [7,7] is the centre in this case"
+    },
+    {
+      "type": "text",
+      "md": "Note that the above is hardcoded for specifically the kernel size I used, but it can be generalized easily.  Note also in this case, since we want color images this time, we have to do this convolution on all 3 color channels:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "for i in range(3):\n    sharpened_image[:, :, i] = scipy.signal.convolve2d(input_image[:, :, i], sharpen_kernel, mode=\"same\")"
+    },
+    {
+      "type": "text",
+      "md": "For the Taj Mahal example, we then get:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row-5.png",
+      "alt": "",
+      "caption": "There is some pretty heavy artifacting, but it does at least appear \"sharper\"!"
+    },
+    {
+      "type": "text",
+      "md": "We notice that the image does appear a lot sharper, especially at a distance. However, we also note that the image looks a bit \"burnt\". The lighter areas have gotten a lot brighter, while the darker areas have gotten a lot dimmer as well. This makes sense, as we are exaggerating small differences. One side effect of this exaggeration is that common image artifacts (I believe in this specific case, the original Taj image has them due to jpeg compression) like the original's random noise pixels in the sky areas directly adjacent to the Taj Mahal get exaggerated as well, resulting in a glow around those parts of the sky (see the very top of the Taj Mahal for a very obvious example). \n\nThat being said, let's try it on some other random images!"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/combined_row-6.png",
+          "alt": "",
+          "caption": "For this Nene, since the image is already very crisp, it's hard to tell the difference! Although you do get the feeling it's somehow subtly crisper..."
+        },
+        {
+          "src": "content/images/combined_row-8.png",
+          "alt": "",
+          "caption": "Comparatively, this Snow Goose was very pixelated to begin with! When sharpened, the pixels get even more apparent, and we can see the outlines of the neck feathers better."
+        },
+        {
+          "src": "content/images/combined_row-9.png",
+          "alt": "",
+          "caption": "This House Sparrow had a lot of artifacts, which get blown up by the unsharpen kernel! Especially look at the cutoff line that goes through the lesser coverts (top of wing), which is subtle enough to not be noticeable in the Initial Image at first glance, but very noticeable on the sharpened!"
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Now, let's evaluate how well this resharpening brings back the details from a blurred image. Using the same Gaussian, we first blur our sample image (the Mallard below) and then unsharpen it. We note that lots of details are significantly lost, which makes sense mathematically, as we can't perfectly gain back all the high frequency details that were lost by the original blur using a unsharp on the blurred images. We do note though, that the resharpened image does look intermediate between the initial image and the blurred image, indicating it is able to shift some details back. For instance, the outline of the beak is a lot more well-defined in the resharpened version."
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row-10.png",
+      "alt": "",
+      "caption": "I've hired this duck to blur and unsharpen at you."
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.2: Hybrid Images\nWe want to create some Franken-images! These images show one image when you're close, but show another when you're far away!\n\nOur first step is to align the images as much as possible. For this, we were given a MATLAB code section, that we then converted to Python. This allows us to align our images together based on 2 points of the image. The code is too large to display here, but the file can be found at [LINK]. We note that for the operations we want (translation, uniform scaling, rotation) for image alignment, we need 4 degrees of freedom, which means that 2 points (4 equations) is enough to align the two images:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/combined_row_dmc.png",
+      "alt": "",
+      "caption": "Derek, Nutmeg, then them being aligned. "
+    },
+    {
+      "type": "text",
+      "md": "Now, we want to actually combine the images. One trick we can take advantage of is that up close, higher frequency details are more apparent, whereas from far away, lower frequency features are more easily seen. Thus, we can use our low frequency filter and high frequency filter from before: the Gaussian and the subtraction from the Gaussian respectively. "
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "gauss_1d = cv2.getGaussianKernel(27, 4.3) \ngauss_2d = np.outer(gauss_1d, gauss_1d.T)\nlow_filter = np.zeros_like(im1)\nblurred_channel = scipy.signal.convolve2d(im1, gauss_2d, mode = \"same\")\nlow_filter = blurred_channel\n\ngauss_1d = cv2.getGaussianKernel(61, 10) \ngauss_2d = np.outer(gauss_1d, gauss_1d.T)\nhigh_filter = np.zeros_like(im2)\nblurred_channel = scipy.signal.convolve2d(im2, gauss_2d, mode = \"same\")\nhigh_filter = im2 - blurred_channel"
+    },
+    {
+      "type": "text",
+      "md": "Note the values of the Gaussian kernel here! We use a size 27 with sigma 4.3 for the Gaussian, and size of 61 with sigma 10 for the subtractive of the Gaussian. I came through these values through experimental values, seeing what seems right, but we do keep in mind that a stronger Gaussian retains a broader range of frequencies for the high frequency image, but lowers the range of frequencies for the low frequency image.  With these values, we get this image:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/hybridwer.png",
+      "alt": "",
+      "caption": "Reminds me of Cats (the musical)... try squinting your eyes if you don't want to move away from your screen."
+    },
+    {
+      "type": "text",
+      "md": "Let's break this down using frequency analysis. By applying FFT on each of the images, their filtered versions, and finally the combined version above, we get the following:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/fft_analysis2.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Notice how in the low-pass FFT, the frequencies are tightly concentrated along a distinct cross-shape, whereas the original images and the final hybrid mix show a much broader spread of frequencies. This clean horizontal and vertical clustering, since complex, multi-directional details are smoothed away, leaving behind only the overall structural lines of the scene. Meanwhile, the high-pass and final hybrid plots show a wide  scatter because sharp edges and fine textures naturally radiate out at all sorts of diagonal angles! We also note that we can see the traces of the low-pass and high-pass in the original FFTs, especially apparent in the lines where Nutmeg has been rotated. \n\nLet's now try it on some other images! Note that for these images, I used different size and sigma values in order to get a better result. "
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/combined_row_dmc-2.png",
+          "alt": "",
+          "caption": "When the images are heavily bordered/cartoonish, it's harder to get a believable delineation (although the im1 is pretty good here)"
+        },
+        {
+          "src": "content/images/combined_row_dmc-3.png",
+          "alt": "",
+          "caption": "Expression change (image is small so you might need to zoom in to get the im2 effect)"
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.2BW: Bells and Whistles\n\nFor this Bell's and Whistles, let's add a splash of color!"
+    },
+    {
+      "type": "image",
+      "src": "content/images/color_comparison.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Personally, I don't see much difference between the low frequency color and both in color, as well as high frequency color and both in grayscale. This makes sense to me, since wide, constant ranges of color are more associated with low frequencies, whereas high frequency color, like the edges, will be more isolated and harder for the eye to pickup. In general, I don't think my overall perception is affected that much by the color, and I kind of feel that for me personally, although the image looks very different, actually being able to tell apart the images is not that different for me. That being said, when up close, I do think I like Color High Frequency slightly more, since it gives the higher frequency image a little more pop and allows me to focus on it better. \n\n## Part 2.3: Gaussian and Laplacian Stacks\n\nFor this question, we're going to be making the little brother of image pyramids, stacks! Stacks are much easier to implement, since all we need to do is to Gaussian blur an image again and again, and append them into an array:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def gaussian_stack(image, levels, kernel_size):\n    stack = [image]\n    for _ in range(levels - 1):\n        stack.append(cv2.GaussianBlur(stack[-1], kernel_size, 0))\n    return stack"
+    },
+    {
+      "type": "text",
+      "md": "The Laplacian stack is then constructed by subtracting the levels of the Gaussian stack from each other:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def laplacian_stack(gaussian):\n    stack = []\n    for i in range(len(gaussian) - 1):\n        stack.append(gaussian[i] - gaussian[i + 1])\n    stack.append(gaussian[-1])\n    return stack"
+    },
+    {
+      "type": "text",
+      "md": "Note for (2) of Part 2.3, the image we need to build is the same as the one we build for Part 2.4, so to save some breath:\n\n## Part 2.4: Multiresolution Blending (AKA the Orapple!)\n\nNote that in order to blend the image, we need to apply some sort of determination over the image, so that we know where one image stops and the other can begin. One naive way to do this, especially for the Orapple, is to just split it down the middle evenly. We can represent this as a mask where one side is black and the other is white:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "mask = np.zeros_like(apple)\nmask[:, : len(apple[0])//2, :] = 1.0"
+    },
+    {
+      "type": "text",
+      "md": "However, if we do this, we get a very sharp divide in the middle where the orange abruptly cuts off into an apple.  We fix this by using a Gaussian stack! By creating a Gaussian Stack of the mask, not only can we blur the final resultant image, we get individual blur levels for each of the intermediate stack images we wish to blend as well. "
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "apple_g = gaussian_stack(apple, 5, (9,9))\norange_g = gaussian_stack(orange, 5, (9,9))\nmask_g = gaussian_stack(mask, 5, (301, 301))\n\napple_l = laplacian_stack(apple_g)\norange_l = laplacian_stack(orange_g)\n"
+    },
+    {
+      "type": "text",
+      "md": "Note that I used pretty small blur on the apple and orange, but a pretty large blur on the mask. I found this worked quite well. In order to create our own version of Figure 10 of the paper, we had to take layer 0 of the apple and orange, then combine them, layer 2 of the apple and orange, then combine those, layer 4 of the apple and orange, then combine those, and finally combine all of the layers together in order to form a final blended orapple:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/orapple_decomposed_grid.jpg",
+      "alt": "",
+      "caption": "Note that as discussed in the paper, I had to use a contrast filter in order to better see the images. Also I noticed that on my computer the layer 0 details sometimes are too fine to render, and I have to zoom in before my computer decides to render them."
+    },
+    {
+      "type": "text",
+      "md": "The Orapple in all its glory: "
+    },
+    {
+      "type": "image",
+      "src": "content/images/oraple_blended.jpg",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Here are some other blends I tried (now with mask as its own black and white image instead):  "
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/Figure_12.png",
+          "alt": "",
+          "caption": "In this one, i edited it so that the bird in the first image is turned around in the second image, which makes for a nicer composition. Unfortunately you can still see some artifacts of the other bird since I didn't want to get too close to the foreground bird. NOTE: I accidentally didn't change the titles for this one, but I lost the images since I overwrote them with the cat below so I can't regenerate it with the correct names...."
+        },
+        {
+          "src": "content/images/Figure_1-1.png",
+          "alt": "",
+          "caption": "I use this cat image to react to people a lot, and I thought it would be fun to have a version where the cat is evilly planning. Note for this one I lowered the Gaussian blur's size by a lot so i could get the finer detail around the hands better."
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.4BW: Bells and Whistles\n\nFor this, I compared whether or not black and white made a difference in the perception of the blended images:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_1graycsle.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "I think the grayscale one looks significantly better up close, since when you flatten the image into monochrome it's much harder to tell that there are defects/stains. That being said, aesthetically the full color one does look quite a bit nicer from afar and it has that pop that I like. "
+    }
+  ]
+}
