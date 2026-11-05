@@ -204,7 +204,7 @@
     {
       "type": "code",
       "language": "python",
-      "code": "def descriptors(image, points):\n    gray = cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), (0, 0), 2).astype(np.float32) / 255\n    good_points, result = [], []\n    for point in points:\n        x, y = point.astype(int)\n        if x < 20 or y < 20 or x >= gray.shape[1] - 20 or y >= gray.shape[0] - 20:\n            continue\n        # note due to misunderstanding my Harris function actually does do subpixel\n        # calculations so I use getRectSubPix here instead of slicing:\n        patch = cv2.getRectSubPix(gray, (40, 40), tuple(point))\n        patch = cv2.resize(patch, (8, 8), interpolation=cv2.INTER_AREA).reshape(-1)\n        patch = (patch - patch.mean()) / max(patch.std(), 1e-6)  # normalize\n        good_points.append(point)\n        result.append(patch)\n    return np.array(good_points), np.array(result)"
+      "code": "def descriptors(image, points):\n    gray = cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), (0, 0), 2).astype(np.float32) / 255\n    good_points, result = [], []\n    for point in points:\n        x, y = point.astype(int)\n        if x < 20 or y < 20 or x >= gray.shape[1] - 20 or y >= gray.shape[0] - 20:\n            continue\n        # note due to misunderstanding my Harris function actually does do subpixel\n        # calculations so I use getRectSubPix here instead of slicing:\n        patch = cv2.getRectSubPix(gray, (40, 40), tuple(point))\n        patch = cv2.resize(patch, (8, 8), interpolation=cv2.INTER_AREA).reshape(-1)\n        patch = (patch - patch.mean()) / max(patch.std(), 1e-6)  # normalize\n        good_points.append(point)\n        result.append(patch)\n    return np.array(good_points), np.array(result) "
     },
     {
       "type": "gallery",
@@ -319,7 +319,12 @@
     },
     {
       "type": "text",
-      "md": "Both of the mosaics do a pretty good job at creating the landscape! I do like the automatic one better, since at least personally I think that the sense of scale is probably more correct in that one, and it seems a bit distorted compared to the automatic mosaic, which keeps the horizon flatter. This is likely due to the fact that the terrain is so sparse in these images, so its harder for humans to detect the correct matches, meanwhile the features can still pick up on details that humans would not be able to pick up on."
+      "md": "Both of the mosaics do a pretty good job at creating the landscape! I do like the automatic one better, since at least personally I think that the sense of scale is probably more correct in that one, and it seems a bit distorted compared to the automatic mosaic, which keeps the horizon flatter. This is likely due to the fact that the terrain is so sparse in these images, so its harder for humans to detect the correct matches, meanwhile the features can still pick up on details that humans would not be able to pick up on. "
+    },
+    {
+      "type": "text",
+      "draft": true,
+      "md": "HUH"
     }
   ]
 }
