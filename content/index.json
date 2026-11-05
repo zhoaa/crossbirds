@@ -27,6 +27,14 @@
   ],
   "posts": [
     {
+      "slug": "syde-671-assignment-3",
+      "title": "SYDE 671 Assignment 3",
+      "date": "2026-10-31",
+      "bird": "coursework",
+      "summary": "[Auto]Stitching Photo Mosaics",
+      "cover": null
+    },
+    {
       "slug": "syde-671-assignment-2",
       "title": "SYDE 671 Assignment 2",
       "date": "2026-10-19",

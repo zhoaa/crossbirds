@@ -39,6 +39,8 @@
         <span id="slug-label" class="path"></span>
       </div>
       <div class="topbar-right">
+        <a class="btn ghost" href="/" target="_blank" rel="noopener" title="Open the full local Crossbirds site in a new tab">View site</a>
+        <button id="shortcuts-open" class="btn ghost" title="Keyboard shortcuts">Shortcuts</button>
         <button id="toggle-preview" class="btn icon-only" title="Toggle preview"><span class="ico" data-i="eye"></span></button>
         <button id="delete" class="btn subtle"><span class="ico" data-i="trash"></span></button>
         <button id="publish-open" class="btn"><span class="ico" data-i="branch"></span>Publish</button>
@@ -51,6 +53,10 @@
         <label class="wide">Title<input type="text" id="m-title" placeholder="Post title"></label>
         <label class="wide">Summary<input type="text" id="m-summary" placeholder="One line, shown on the index"></label>
         <div class="wide"><span class="fl">Bird</span><div id="m-bird" class="bird-pick"></div></div>
+        <label class="wide width-control">Post width <output id="m-width-value">720px</output>
+          <input type="range" id="m-width" min="480" max="1200" step="20" value="720">
+          <small>Text blocks and other post content resize with this.</small>
+        </label>
         <label>Slug<input type="text" id="m-slug" placeholder="url-slug"></label>
         <label>Date<input type="date" id="m-date"></label>
       </div>
@@ -97,6 +103,27 @@
         <button class="btn ghost" id="birds-cancel">Cancel</button>
         <button class="btn solid" id="birds-save"><span class="ico" data-i="check"></span>Save birds</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="shortcuts-modal" class="modal hidden">
+  <div class="sheet shortcut-sheet">
+    <header class="sheet-head">
+      <h2>Block shortcuts</h2>
+      <button class="btn icon-only subtle" id="shortcuts-close"><span class="ico" data-i="x"></span></button>
+    </header>
+    <div class="sheet-body">
+      <p class="hint">Use <kbd>⌘</kbd> on Mac or <kbd>Ctrl</kbd> elsewhere. These combinations avoid the editor’s Save and preview-navigation shortcuts.</p>
+      <dl class="shortcut-list">
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>I</kbd></dt><dd>Insert after the selected block. Choose a type with <kbd>←</kbd>/<kbd>→</kbd>, then press <kbd>Enter</kbd>.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>N</kbd></dt><dd>Select the next block.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>P</kbd></dt><dd>Select the previous block.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>D</kbd></dt><dd>Duplicate the selected block.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>N</kbd></dt><dd>Move the selected block down.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>Shift</kbd><kbd>P</kbd></dt><dd>Move the selected block up.</dd></div>
+        <div><dt><kbd>Mod</kbd><kbd>Alt</kbd><kbd>C</kbd></dt><dd>Collapse or expand the selected block.</dd></div>
+      </dl>
     </div>
   </div>
 </div>
@@ -172,14 +199,14 @@ const SCHEMA = {
 };
 
 const BLANK = {
-  text:      () => ({ type:'text', md:'' }),
-  code:      () => ({ type:'code', language:'python', code:'' }),
-  python:    () => ({ type:'python', packages:[], autorun:false, code:'' }),
-  image:     () => ({ type:'image', src:'', alt:'', caption:'' }),
-  gallery:   () => ({ type:'gallery', images:[], caption:'' }),
-  slideshow: () => ({ type:'slideshow', slides:[], caption:'' }),
-  math:      () => ({ type:'math', tex:'', caption:'' }),
-  quote:     () => ({ type:'quote', text:'', cite:'' })
+  text:      () => ({ type:'text', draft:true, md:'' }),
+  code:      () => ({ type:'code', draft:true, language:'python', code:'' }),
+  python:    () => ({ type:'python', draft:true, packages:[], autorun:false, code:'' }),
+  image:     () => ({ type:'image', draft:true, src:'', alt:'', caption:'' }),
+  gallery:   () => ({ type:'gallery', draft:true, images:[], caption:'' }),
+  slideshow: () => ({ type:'slideshow', draft:true, slides:[], caption:'' }),
+  math:      () => ({ type:'math', draft:true, tex:'', caption:'' }),
+  quote:     () => ({ type:'quote', draft:true, text:'', cite:'' })
 };
 
 /* ---------- state ---------- */
@@ -191,6 +218,10 @@ let postsMeta = [];
 const { birdSVG } = window.Crossbirds;
 const birdById = id => birds.find(b => b.id === id);
 let previewReady = false;
+let navigationMode = 'editor-to-preview';
+let selectedBlock = 0;
+let insertPicker = null;
+let insertChoiceIndex = 0;
 const collapsed = new WeakSet();
 
 const $ = id => document.getElementById(id);
@@ -231,11 +262,36 @@ function pushPreview() {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
     $('preview-frame').contentWindow.postMessage(
-      { kind:'render', title:doc.title, date:doc.date, blocks:doc.blocks }, '*');
+      { kind:'render', title:doc.title, date:doc.date, width:doc.width, blocks:doc.blocks }, '*');
   }, 260);
 }
+
+function revealPreviewBlock(index) {
+  if (navigationMode !== 'editor-to-preview' || !previewReady || document.body.classList.contains('no-preview')) return;
+  $('preview-frame').contentWindow.postMessage({ kind:'scroll-to-block', index }, '*');
+}
+
+function revealEditorBlock(index) {
+  if (navigationMode !== 'preview-to-editor') return;
+  const block = $('blocks').querySelector(`.blk[data-i="${index}"]`);
+  if (!block) return;
+  block.scrollIntoView({ behavior:'smooth', block:'center' });
+  block.classList.remove('editor-target');
+  void block.offsetWidth;
+  block.classList.add('editor-target');
+}
+
+function setNavigationMode(mode) {
+  navigationMode = mode;
+  $('preview-note').textContent = mode === 'editor-to-preview'
+    ? 'Editor → preview · Shift + ←'
+    : 'Preview → editor · Shift + →';
+}
+
 addEventListener('message', e => {
   if (e.data?.kind === 'preview-ready') { previewReady = true; pushPreview(); }
+  if (e.data?.kind === 'preview-block-click') revealEditorBlock(e.data.index);
+  if (e.data?.kind === 'set-navigation-mode') setNavigationMode(e.data.mode);
 });
 
 /* ---------- post list ---------- */
@@ -301,6 +357,7 @@ async function openPost(slug) {
     bird: post.bird || meta.bird || '',
     summary: meta.summary || '',
     cover: meta.cover || null,
+    width: post.width || 720,
     blocks: post.blocks || []
   };
   paintAll();
@@ -310,7 +367,7 @@ async function openPost(slug) {
 function newPost() {
   if (!confirmDiscard()) return;
   doc = { slug:'', title:'', date:new Date().toISOString().slice(0,10),
-          bird: birds[0]?.id || '', summary:'', cover:null, blocks:[] };
+          bird: birds[0]?.id || '', summary:'', cover:null, width:720, blocks:[] };
   paintAll();
   $('m-title').focus();
 }
@@ -326,6 +383,8 @@ function paintAll() {
   $('m-slug').value = doc.slug;
   $('m-date').value = doc.date;
   $('m-summary').value = doc.summary || '';
+  $('m-width').value = doc.width || 720;
+  $('m-width-value').value = `${$('m-width').value}px`;
   $('slug-label').textContent = doc.slug ? `content/posts/${doc.slug}.json` : 'unsaved';
   paintBirdPick();
   paintBlocks();
@@ -335,21 +394,39 @@ function paintAll() {
 function paintBlocks() {
   const wrap = $('blocks');
   if (!doc.blocks.length) {
+    selectedBlock = -1;
     wrap.innerHTML = `<div class="no-blocks">
       <p>This post is empty.</p><p class="sub">Add a block below to get going.</p></div>`;
     pushPreview();
     return;
   }
+  selectedBlock = Math.min(Math.max(selectedBlock, 0), doc.blocks.length - 1);
+  const insertionRail = at => `
+    <div class="insert-rail" data-insert-at="${at}">
+      <span class="insert-rule"></span>
+      <button type="button" class="insert-trigger" data-insert-toggle
+        aria-label="Add a block here" title="Add a block here">
+        <span class="ico" data-i="plus"></span><span>Add block</span>
+      </button>
+      <div class="insert-menu" role="group" aria-label="Choose a block type">
+        ${Object.entries(SCHEMA).map(([type, spec]) =>
+          `<button type="button" class="insert-choice" data-insert="${type}" title="${esc(spec.hint)}">${esc(spec.label)}</button>`
+        ).join('')}
+      </div>
+    </div>`;
+
   wrap.innerHTML = doc.blocks.map((b, i) => {
     const spec = SCHEMA[b.type];
     const shut = collapsed.has(b);
     return `
-    <article class="blk${shut ? ' shut' : ''}" data-i="${i}">
-      <div class="blk-head" data-toggle="${i}">
+    <article class="blk${shut ? ' shut' : ''}${i === selectedBlock ? ' selected' : ''}" data-i="${i}">
+      <div class="blk-head" data-toggle="${i}" tabindex="-1">
         <span class="grip" draggable="true" title="Drag to reorder"></span>
         <span class="chev ico" data-i="chev"></span>
         <strong>${esc(spec ? spec.label : b.type)}</strong>
         <span class="blk-peek">${esc(peek(b))}</span>
+        ${b.draft ? `<button class="ico-btn draft-confirm" data-act="approve" data-i="${i}"
+          title="Confirm this draft block"><span class="ico" data-i="check"></span><span>Draft</span></button>` : ''}
         <span class="blk-tools">
           <button class="ico-btn" data-act="up"   data-i="${i}" title="Move up"><span class="ico" data-i="up"></span></button>
           <button class="ico-btn" data-act="down" data-i="${i}" title="Move down"><span class="ico" data-i="down"></span></button>
@@ -360,7 +437,7 @@ function paintBlocks() {
       <div class="blk-body">
         ${spec ? spec.fields.map(f => field(f, b, i)).join('') : '<p class="warn">Unknown type</p>'}
       </div>
-    </article>`;
+    </article>${insertionRail(i + 1)}`;
   }).join('');
   paintIcons(wrap);
   wireBlocks();
@@ -464,8 +541,112 @@ function imageField(v, { i, k, j, sub, slim }) {
 
 /* ---------- wiring ---------- */
 
+function selectBlock(index, { focus = false } = {}) {
+  if (!doc?.blocks.length) return;
+  selectedBlock = Math.min(Math.max(index, 0), doc.blocks.length - 1);
+  const wrap = $('blocks');
+  wrap.querySelectorAll('.blk').forEach(card =>
+    card.classList.toggle('selected', +card.dataset.i === selectedBlock));
+  const card = wrap.querySelector(`.blk[data-i="${selectedBlock}"]`);
+  if (!card) return;
+  card.scrollIntoView({ behavior:'smooth', block:'center' });
+  revealPreviewBlock(selectedBlock);
+  if (focus) (card.querySelector('textarea, input:not([type=checkbox]), .blk-head'))?.focus();
+}
+
+function insertBlock(at, type) {
+  doc.blocks.splice(at, 0, BLANK[type]());
+  selectedBlock = at;
+  insertPicker = null;
+  paintBlocks();
+  paintDirty();
+  selectBlock(at, { focus:true });
+}
+
+function openInsertPicker() {
+  if (selectedBlock < 0) return;
+  const rail = $('blocks').querySelector(`.insert-rail[data-insert-at="${selectedBlock + 1}"]`);
+  if (!rail) return;
+  $('blocks').querySelectorAll('.insert-rail.open').forEach(other => other.classList.remove('open'));
+  rail.classList.add('open');
+  insertPicker = rail;
+  insertChoiceIndex = 0;
+  paintInsertChoice();
+}
+
+function closeInsertPicker() {
+  insertPicker?.classList.remove('open');
+  insertPicker = null;
+}
+
+function paintInsertChoice() {
+  if (!insertPicker) return;
+  const choices = [...insertPicker.querySelectorAll('.insert-choice')];
+  choices.forEach((choice, i) => choice.classList.toggle('key-selected', i === insertChoiceIndex));
+  choices[insertChoiceIndex]?.focus();
+}
+
+function duplicateSelected() {
+  if (selectedBlock < 0) return;
+  const copy = structuredClone(doc.blocks[selectedBlock]);
+  copy.draft = true;
+  doc.blocks.splice(selectedBlock + 1, 0, copy);
+  selectedBlock++;
+  paintBlocks();
+  paintDirty();
+  selectBlock(selectedBlock, { focus:true });
+}
+
+function moveSelected(direction) {
+  const to = selectedBlock + direction;
+  if (selectedBlock < 0 || to < 0 || to >= doc.blocks.length) return;
+  [doc.blocks[selectedBlock], doc.blocks[to]] = [doc.blocks[to], doc.blocks[selectedBlock]];
+  selectedBlock = to;
+  paintBlocks();
+  paintDirty();
+  selectBlock(selectedBlock, { focus:true });
+}
+
+function toggleSelectedCollapsed() {
+  if (selectedBlock < 0) return;
+  const block = doc.blocks[selectedBlock];
+  collapsed.has(block) ? collapsed.delete(block) : collapsed.add(block);
+  paintBlocks();
+  selectBlock(selectedBlock);
+}
+
 function wireBlocks() {
   const wrap = $('blocks');
+
+  // The slim rail between cards opens a type picker without changing order.
+  wrap.querySelectorAll('[data-insert-toggle]').forEach(toggle =>
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      const rail = toggle.closest('.insert-rail');
+      const open = rail.classList.toggle('open');
+      wrap.querySelectorAll('.insert-rail.open').forEach(other => {
+        if (other !== rail) other.classList.remove('open');
+      });
+      insertPicker = open ? rail : null;
+      if (open) {
+        insertChoiceIndex = 0;
+        paintInsertChoice();
+      }
+    }));
+
+  wrap.querySelectorAll('[data-insert]').forEach(button =>
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      insertBlock(+button.closest('.insert-rail').dataset.insertAt, button.dataset.insert);
+    }));
+
+  // Keep the live preview aligned with the block being edited. Buttons and
+  // the drag grip are controls rather than block selection, so leave them be.
+  wrap.querySelectorAll('.blk').forEach(card =>
+    card.addEventListener('click', e => {
+      if (e.target.closest('.ico-btn, .grip')) return;
+      selectBlock(+card.dataset.i);
+    }));
 
   // collapse / expand
   wrap.querySelectorAll('[data-toggle]').forEach(head =>
@@ -478,6 +659,7 @@ function wireBlocks() {
 
   // value binding — no re-render, so focus is never stolen
   wrap.querySelectorAll('input[data-k], textarea[data-k]').forEach(el => {
+    el.addEventListener('focus', () => selectBlock(+el.dataset.i));
     const ev = el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(ev, () => {
       const { i, k, j, sub } = el.dataset;
@@ -496,13 +678,20 @@ function wireBlocks() {
       e.stopPropagation();
       const { act, i, k, j } = btn.dataset;
       const n = +i;
-      if (act === 'up' && n > 0) [doc.blocks[n-1], doc.blocks[n]] = [doc.blocks[n], doc.blocks[n-1]];
-      if (act === 'down' && n < doc.blocks.length - 1)
+      if (act === 'up' && n > 0) {
+        [doc.blocks[n-1], doc.blocks[n]] = [doc.blocks[n], doc.blocks[n-1]];
+        selectedBlock = n - 1;
+      }
+      if (act === 'down' && n < doc.blocks.length - 1) {
         [doc.blocks[n+1], doc.blocks[n]] = [doc.blocks[n], doc.blocks[n+1]];
-      if (act === 'dup') doc.blocks.splice(n + 1, 0, structuredClone(doc.blocks[n]));
+        selectedBlock = n + 1;
+      }
+      if (act === 'dup') { selectedBlock = n; duplicateSelected(); return; }
+      if (act === 'approve') delete doc.blocks[n].draft;
       if (act === 'del') {
         if (peek(doc.blocks[n]) && !confirm('Remove this block?')) return;
         doc.blocks.splice(n, 1);
+        selectedBlock = Math.min(n, doc.blocks.length - 1);
       }
       if (act === 'item-add') {
         const spec = SCHEMA[doc.blocks[n].type].fields.find(f => f.k === k);
@@ -822,6 +1011,7 @@ async function saveBirds() {
 /* ---------- boot ---------- */
 
 paintIcons(document);
+setNavigationMode(navigationMode);
 
 $('new-post').addEventListener('click', newPost);
 $('save').addEventListener('click', save);
@@ -843,13 +1033,17 @@ $('toggle-preview').addEventListener('click', () => {
   document.body.classList.toggle('no-preview');
   $('toggle-preview').classList.toggle('off');
 });
+$('shortcuts-open').addEventListener('click', () => $('shortcuts-modal').classList.remove('hidden'));
+$('shortcuts-close').addEventListener('click', () => $('shortcuts-modal').classList.add('hidden'));
 
-['m-title', 'm-slug', 'm-date', 'm-summary'].forEach(id =>
+['m-title', 'm-slug', 'm-date', 'm-summary', 'm-width'].forEach(id =>
   $(id).addEventListener('input', () => {
     if (id === 'm-title' && !doc.slug) $('m-slug').value = slugify($('m-title').value);
     doc.title = $('m-title').value;
     doc.date = $('m-date').value;
     doc.summary = $('m-summary').value;
+    doc.width = +$('m-width').value;
+    $('m-width-value').value = `${doc.width}px`;
     paintDirty();
   }));
 
@@ -866,8 +1060,47 @@ $('add-buttons').querySelectorAll('[data-add]').forEach(b =>
   }));
 
 addEventListener('keydown', e => {
+  if (insertPicker) {
+    const choices = insertPicker.querySelectorAll('.insert-choice');
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      insertChoiceIndex = (insertChoiceIndex + (e.key === 'ArrowRight' ? 1 : -1) + choices.length) % choices.length;
+      paintInsertChoice();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      insertBlock(+insertPicker.dataset.insertAt, choices[insertChoiceIndex].dataset.insert);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeInsertPicker();
+      return;
+    }
+  }
+
+  const blockCommand = doc && (e.metaKey || e.ctrlKey) && e.altKey;
+  if (blockCommand) {
+    const key = e.key.toLowerCase();
+    if (key === 'i' && !e.shiftKey) { e.preventDefault(); openInsertPicker(); return; }
+    if (key === 'n' && !e.shiftKey) { e.preventDefault(); selectBlock(selectedBlock + 1, { focus:true }); return; }
+    if (key === 'p' && !e.shiftKey) { e.preventDefault(); selectBlock(selectedBlock - 1, { focus:true }); return; }
+    if (key === 'd' && !e.shiftKey) { e.preventDefault(); duplicateSelected(); return; }
+    if (key === 'c' && !e.shiftKey) { e.preventDefault(); toggleSelectedCollapsed(); return; }
+    if (key === 'n' && e.shiftKey) { e.preventDefault(); moveSelected(1); return; }
+    if (key === 'p' && e.shiftKey) { e.preventDefault(); moveSelected(-1); return; }
+  }
+  if (e.shiftKey && e.key === 'ArrowLeft') {
+    e.preventDefault();
+    setNavigationMode('editor-to-preview');
+  }
+  if (e.shiftKey && e.key === 'ArrowRight') {
+    e.preventDefault();
+    setNavigationMode('preview-to-editor');
+  }
   if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (doc) save(); }
-  if (e.key === 'Escape') { closePublish(); closeBirds(); }
+  if (e.key === 'Escape') { closePublish(); closeBirds(); $('shortcuts-modal').classList.add('hidden'); }
 });
 addEventListener('beforeunload', e => { if (isDirty()) e.preventDefault(); });
 

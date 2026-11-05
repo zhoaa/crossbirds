@@ -46,6 +46,12 @@
       const POST_URL = (slug) => `content/posts/${slug}.json`;
       const view = document.getElementById("view");
 
+      function setPostWidth(width = 720) {
+        const contentWidth = Number.isFinite(+width) ? +width : 720;
+        document.documentElement.style.setProperty("--post-width", `${contentWidth}px`);
+        document.documentElement.style.setProperty("--post-shell-width", `${contentWidth + 140}px`);
+      }
+
       async function getJSON(url) {
         const r = await fetch(url, { cache: "no-store" });
         if (!r.ok) throw new Error(`${url} → ${r.status}`);
@@ -193,6 +199,7 @@
           const back = bird
             ? `href="#/bird/${encodeURIComponent(bird.id)}">${esc(bird.name)}`
             : 'href="#/">Categories';
+          setPostWidth(post.width);
           document.title = `${post.title} — Crossbirds`;
           view.innerHTML = `
       <article class="post">
@@ -232,6 +239,7 @@
         const post = location.hash.match(/^#\/post\/(.+)$/);
         const bird = location.hash.match(/^#\/bird\/(.+)$/);
         window.scrollTo(0, 0);
+        setPostWidth();
         document.body.dataset.view = post ? "post" : bird ? "bird" : "home";
         if (post) showPost(decodeURIComponent(post[1]));
         else if (bird) showBird(decodeURIComponent(bird[1]));

@@ -1,0 +1,325 @@
+{
+  "title": "SYDE 671 Assignment 3",
+  "date": "2026-10-31",
+  "bird": "coursework",
+  "width": 960,
+  "blocks": [
+    {
+      "type": "text",
+      "md": "# Part 1: Image Warping and Mosaicing\n\n## Part 1.1: Shoot the Pictures\nWe begin with some photos, of the lovely EV3 4th floor:\n"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/ev3_left.jpg",
+          "alt": "",
+          "caption": "ev3_left.jpg"
+        },
+        {
+          "src": "content/images/ev3_right.jpg",
+          "alt": "",
+          "caption": "ev3_right.jpg"
+        }
+      ],
+      "caption": "One of the better study spots on campus."
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.2: Recover Homographies\n Our goal here is to find a way to align these images, so that we can get a combined, extended image at the end. One way we can find an alignment is to match points representing the same things in both images:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_1-2.png",
+      "alt": "",
+      "caption": "Here, I manually selected 20 shared points from each image."
+    },
+    {
+      "type": "text",
+      "md": "Now, consider the function that maps points on one image to their counterparts on the other image. If we apply that function to all points in the image, then, we'll find that our output image will be aligned with the other image! This function is called the homography!\n\nIt turns out, due to Math™, for 2D transformations, a 3x3 matrix $H=\\begin{bmatrix}h_{11}&h_{12}&h_{13}\\\\h_{21}&h_{22}&h_{23}\\\\h_{31}&h_{32}&h_{33}\\end{bmatrix}$ is sufficient to define this transformation. For a point (x_1, y_1) in the first image, the corresponding point (x_2, y_2) in the second image is obtained by applying H and dividing by the last coordinate.\n\nThe nice thing is that multiplying every entry of H by the same number does not change the final point after that division. So, we can simply set $h_{33}=1$. This leaves eight unknowns, and each matched point gives us two linear equations. We put all of those equations in a matrix A, put the destination coordinates in a vector b, to get:"
+    },
+    {
+      "type": "math",
+      "tex": "\\begin{bmatrix}\n254.5 & 419.7 & 1 & 0 & 0 & 0 & -130583.95 & -215348.07 \\\\\n0 & 0 & 0 & 254.5 & 419.7 & 1 & -100018.5 & -164942.1 \\\\\n160.5 & 687.6 & 1 & 0 & 0 & 0 & -68694 & -294292.8 \\\\\n0 & 0 & 0 & 160.5 & 687.6 & 1 & -104517.6 & -447765.12 \\\\\n226.1 & 716 & 1 & 0 & 0 & 0 & -111806.45 & -354062 \\\\\n0 & 0 & 0 & 226.1 & 716 & 1 & -154245.42 & -488455.2 \\\\\n170.2 & 488 & 1 & 0 & 0 & 0 & -73134.94 & -209693.6 \\\\\n0 & 0 & 0 & 170.2 & 488 & 1 & -78819.62 & -225992.8 \\\\\n235.9 & 480.9 & 1 & 0 & 0 & 0 & -116864.86 & -238237.86 \\\\\n0 & 0 & 0 & 235.9 & 480.9 & 1 & -106957.06 & -218040.06 \\\\\n113.5 & 181.9 & 1 & 0 & 0 & 0 & -42937.05 & -68812.77 \\\\\n0 & 0 & 0 & 113.5 & 181.9 & 1 & -19941.95 & -31959.83 \\\\\n195.1 & 94.1 & 1 & 0 & 0 & 0 & -89902.08 & -43361.28 \\\\\n0 & 0 & 0 & 195.1 & 94.1 & 1 & -14027.69 & -6765.79 \\\\\n58.5 & 237.8 & 1 & 0 & 0 & 0 & -19328.4 & -78569.12 \\\\\n0 & 0 & 0 & 58.5 & 237.8 & 1 & -13963.95 & -56762.86 \\\\\n306.8 & 606.8 & 1 & 0 & 0 & 0 & -175949.8 & -347999.8 \\\\\n0 & 0 & 0 & 306.8 & 606.8 & 1 & -177483.8 & -351033.8 \\\\\n357.4 & 402.8 & 1 & 0 & 0 & 0 & -225555.14 & -254207.08 \\\\\n0 & 0 & 0 & 357.4 & 402.8 & 1 & -130343.78 & -146901.16 \\\\\n139.2 & 654.7 & 1 & 0 & 0 & 0 & -56863.2 & -267444.95 \\\\\n0 & 0 & 0 & 139.2 & 654.7 & 1 & -86206.56 & -405455.71 \\\\\n21.2 & 426.8 & 1 & 0 & 0 & 0 & -6270.96 & -126247.44 \\\\\n0 & 0 & 0 & 21.2 & 426.8 & 1 & -8766.2 & -176481.8 \\\\\n17.6 & 482.6 & 1 & 0 & 0 & 0 & -5206.08 & -142753.08 \\\\\n0 & 0 & 0 & 17.6 & 482.6 & 1 & -8166.4 & -223926.4 \\\\\n233.2 & 976.8 & 1 & 0 & 0 & 0 & -120284.56 & -503833.44 \\\\\n0 & 0 & 0 & 233.2 & 976.8 & 1 & -218671.64 & -915945.36 \\\\\n293.5 & 585.5 & 1 & 0 & 0 & 0 & -164653.5 & -328465.5 \\\\\n0 & 0 & 0 & 293.5 & 585.5 & 1 & -163773 & -326709 \\\\\n189.7 & 594.4 & 1 & 0 & 0 & 0 & -86237.62 & -270214.24 \\\\\n0 & 0 & 0 & 189.7 & 594.4 & 1 & -107199.47 & -335895.44 \\\\\n18.5 & 279.5 & 1 & 0 & 0 & 0 & -5488.95 & -82927.65 \\\\\n0 & 0 & 0 & 18.5 & 279.5 & 1 & -5235.5 & -79098.5 \\\\\n83.3 & 210.3 & 1 & 0 & 0 & 0 & -29296.61 & -73962.51 \\\\\n0 & 0 & 0 & 83.3 & 210.3 & 1 & -17517.99 & -44226.09 \\\\\n215.5 & 218.3 & 1 & 0 & 0 & 0 & -101974.6 & -103299.56 \\\\\n0 & 0 & 0 & 215.5 & 218.3 & 1 & -42259.55 & -42808.63 \\\\\n148 & 265.3 & 1 & 0 & 0 & 0 & -60458 & -108375.05 \\\\\n0 & 0 & 0 & 148 & 265.3 & 1 & -37296 & -66855.6\n\\end{bmatrix}\\begin{bmatrix}h_{11}\\\\h_{12}\\\\h_{13}\\\\h_{21}\\\\h_{22}\\\\h_{23}\\\\h_{31}\\\\h_{32}\\end{bmatrix}=\\begin{bmatrix}\n513.1 \\\\\n393 \\\\\n428 \\\\\n651.2 \\\\\n494.5 \\\\\n682.2 \\\\\n429.7 \\\\\n463.1 \\\\\n495.4 \\\\\n453.4 \\\\\n378.3 \\\\\n175.7 \\\\\n460.8 \\\\\n71.9 \\\\\n330.4 \\\\\n238.7 \\\\\n573.5 \\\\\n578.5 \\\\\n631.1 \\\\\n364.7 \\\\\n408.5 \\\\\n619.3 \\\\\n295.8 \\\\\n413.5 \\\\\n295.8 \\\\\n464 \\\\\n515.8 \\\\\n937.7 \\\\\n561 \\\\\n558 \\\\\n454.6 \\\\\n565.1 \\\\\n296.7 \\\\\n283 \\\\\n351.7 \\\\\n210.3 \\\\\n473.2 \\\\\n196.1 \\\\\n408.5 \\\\\n252\n\\end{bmatrix}",
+      "caption": "If you think reading that sucks, try typing it out!"
+    },
+    {
+      "type": "text",
+      "md": "You'll quickly notice a big issue with this system of equations. Namely, there are too many equations! We could've \"fixed\" this by selecting less points to begin with, but we actually want this overdeterminism. With too few points, we become very susceptible to noise, and since both cameras and humans are imperfect, selected points are bound to have some error as well. Instead, np.linalg.lstsq finds the eight values that make Ah as close to b as possible:\n"
+    },
+    {
+      "type": "code",
+      "packages": [],
+      "autorun": false,
+      "language": "python",
+      "code": "def computeH(im1_pts, im2_pts):\n    A = []\n    b = []\n\n    for (x1, y1), (x2, y2) in zip(im1_pts, im2_pts):\n        A.append([x1, y1, 1, 0, 0, 0, -x1 * x2, -y1 * x2])\n        A.append([0, 0, 0, x1, y1, 1, -x1 * y2, -y1 * y2])\n        b.extend([x2, y2])\n\n    h, _, _, _ = np.linalg.lstsq(A, b, rcond=None)  # fit all correspondence equations\n    return np.array([[h[0], h[1], h[2]],\n                     [h[3], h[4], h[5]],\n                     [h[6], h[7], 1]])"
+    },
+    {
+      "type": "text",
+      "md": "This gives us our homography H:\n\n[[ 6.97825999e-01  2.63271337e-02  2.74157118e+02]\n [-2.47633514e-01  9.04926105e-01  3.25359250e+01]\n [-4.54015848e-04  2.21719695e-05  1.00000000e+00]]\n\n## Part 1.3: Warp the Images\nNow that we have the homography, we can finally align the images! But first, we need to determine which pixels the transformed image actually occupies. Transforming its four corners gives us a bounding box. From there, we create every coordinate in the output and apply the *inverse* homography to it. Note that an inverse homography is much safer, since forward mapping doesn't necessarily ensure all pixels land on the same square!"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def warpGrid(im, H):\n    h, w = im.shape[:2]\n    corners = np.array([[0, 0, 1], [w - 1, 0, 1],\n                        [w - 1, h - 1, 1], [0, h - 1, 1]]).T\n    warped_corners = H @ corners  # transform all four corners\n    warped_corners = (warped_corners[:2] / warped_corners[2]).T  # divide homogeneous coordinates\n\n    min_x, min_y = np.floor(warped_corners.min(0)).astype(int)\n    max_x, max_y = np.ceil(warped_corners.max(0)).astype(int)\n    out_h, out_w = max_y - min_y + 1, max_x - min_x + 1\n\n    shift = np.array([[1, 0, -min_x], [0, 1, -min_y], [0, 0, 1]])\n    y, x = np.indices((out_h, out_w))\n    source = np.linalg.inv(shift @ H) @ np.vstack((x.ravel(), y.ravel(), np.ones(x.size)))  # map output back to source\n    source_x = (source[0] / source[2]).reshape(out_h, out_w)  # restore source x grid\n    source_y = (source[1] / source[2]).reshape(out_h, out_w)  # restore source y grid\n    return source_x, source_y"
+    },
+    {
+      "type": "text",
+      "md": "For warpImageNearestNeighbor, we round each coordinate to its nearest pixel, mark coordinates outside the source image as invalid, and copy valid source pixels into an output canvas with the same shape as the coordinate grids:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def warpImageNearestNeighbor(im, H):\n    h, w = im.shape[:2]\n    x, y = warpGrid(im, H)\n    x, y = np.round(x).astype(int), np.round(y).astype(int)\n    valid = (0 <= x) & (x < w) & (0 <= y) & (y < h)\n    output = np.zeros(x.shape + im.shape[2:])\n    output[valid] = im[np.clip(y[valid], 0, h - 1), np.clip(x[valid], 0, w - 1)]\n    return output"
+    },
+    {
+      "type": "text",
+      "md": "For warpImageBilinear, we instead save the distances dx, dy from the target coordinate to its top left neighbor, then we use those distances in order to blend the top and bottom pixel pairs horizontally and vertically."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def warpImageBilinear(im, H):\n    h, w = im.shape[:2]\n    x, y = warpGrid(im, H)\n    dx, dy = x - np.floor(x), y - np.floor(y)  # save fractional offsets\n    x, y = np.floor(x).astype(int), np.floor(y).astype(int)  # use lower neighbour indices\n    valid = (0 <= x) & (x + 1 < w) & (0 <= y) & (y + 1 < h)  # require four valid neighbours\n    x, y = np.clip(x, 0, w - 2), np.clip(y, 0, h - 2)  # keep neighbour lookups safe\n\n    if im.ndim == 3:\n        dx, dy = dx[..., None], dy[..., None]  # broadcast weights across colour channels\n    values = ((1 - dx) * (1 - dy) * im[y, x] +\n              dx * (1 - dy) * im[y, x + 1] +\n              (1 - dx) * dy * im[y + 1, x] +\n              dx * dy * im[y + 1, x + 1])\n\n    output = np.zeros(x.shape + im.shape[2:])\n    output[valid] = values[valid]\n    return output"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-warped-nn.png",
+          "alt": "",
+          "caption": "Nearest neighbour"
+        },
+        {
+          "src": "content/images/syde671-a3-warped-bilinear.png",
+          "alt": "",
+          "caption": "Bilinear"
+        }
+      ],
+      "caption": "If you zoom in, you can see that the NearestNeighbor warp creates much more jagged outside edges than the bilinear one!"
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.3.1: Rectification\nTo sanity check the transform, I used a photo of a Devin poster that was taken at an angle. In the original image, the poster corners are at  (319,146), (668,221), (675,593), and (320,547).\n\nI map those points to the corners of a 400 \\times 400 square, compute the homography with the same computeH function, and warp the output using bilinear interpolation:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "poster_corners = np.array([[319, 146], [668, 221], [675, 593], [320, 547]])\nrectangle = np.array([[0, 0], [399, 0], [399, 399], [0, 399]])\nrectification_H = computeH(poster_corners, rectangle)\nwarped = warpImageBilinear(original, rectification_H) # output is warped"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-devin-points.png",
+          "alt": "",
+          "caption": "The corners are in red, outline is in green."
+        },
+        {
+          "src": "content/images/devin_rectified.png",
+          "alt": "",
+          "caption": "After warp, the ad is now square!"
+        }
+      ],
+      "caption": "NOTE: I do not endorse Devin. I think their product may be a scam. This was simply the only image I had that had something I knew for certain was square and was at an appropriately skewed angle..."
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.4: Blend the Images into a Mosaic\nNow let's blend them together! Obviously, just pasting one image on top of the other will create a bad result, since there will be a nasty seam over the image. Instead, we will use a blending approach with feathering! First, we create a binary mask of each image where the gradient is stronger in the middle and fades to the edges. Then, notice that for the image to be warped, due to the properties of homography, if we simply apply the homography to the mask, we will get the exact mask as if we feathered from the warped image! Using this mask, we can then determine how much to blend each image!"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "# i think the original assignment intended to use matlab, i'm using this as an equivalent:\nfrom scipy.ndimage import distance_transform_edt as bwdist\n\ndef blendMosaic(left, warped_right, warped_mask, right_shape, H):\n    h, w = right_shape[:2]\n    corners = H @ np.array([[0, 0, 1], [w - 1, 0, 1],\n                            [w - 1, h - 1, 1], [0, h - 1, 1]]).T\n    corners = corners[:2] / corners[2]  # divide homogeneous coordinates\n    min_x, min_y = np.floor(corners.min(axis=1)).astype(int)\n    max_x, max_y = np.ceil(corners.max(axis=1)).astype(int)\n    origin_x, origin_y = min(0, min_x), min(0, min_y)  # include both images\n    width = max(left.shape[1] - 1, max_x) - origin_x + 1\n    height = max(left.shape[0] - 1, max_y) - origin_y + 1\n\n    total = np.zeros((height, width, left.shape[2]))\n    total_weight = np.zeros((height, width))\n\n    left_x, left_y = -origin_x, -origin_y\n    left_canvas = np.zeros_like(total)\n    left_canvas[left_y:left_y + left.shape[0],\n                left_x:left_x + left.shape[1]] = left\n    left_mask = np.zeros((height, width), np.uint8)\n    left_mask[left_y:left_y + left.shape[0],\n              left_x:left_x + left.shape[1]] = 1\n    left_weight = bwdist(left_mask)\n\n    right_x, right_y = min_x - origin_x, min_y - origin_y\n    right_canvas = np.zeros_like(total)\n    right_canvas[right_y:right_y + warped_right.shape[0],\n                 right_x:right_x + warped_right.shape[1]] = warped_right\n    right_mask = np.zeros((height, width), np.uint8)\n    right_mask[right_y:right_y + warped_mask.shape[0],\n               right_x:right_x + warped_mask.shape[1]] = warped_mask > 0\n    right_weight = bwdist(right_mask)\n\n    total = (left_canvas * left_weight[..., None] +\n             right_canvas * right_weight[..., None])  # combine weighted pixel values\n    total_weight = left_weight + right_weight\n\n    return np.divide(total, total_weight[..., None], out=np.zeros_like(total),\n                     where=total_weight[..., None] != 0).astype(left.dtype)"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-mosaic-nn.png",
+          "alt": "",
+          "caption": "Nearest-neighbour mosaic"
+        },
+        {
+          "src": "content/images/syde671-a3-mosaic-bilinear.png",
+          "alt": "",
+          "caption": "Bilinear mosaic"
+        }
+      ],
+      "caption": "Seems decent, even if the sign doesn't match perfectly..."
+    },
+    {
+      "type": "text",
+      "md": "# Part 2: Feature Matching for Autostitching\nBut isn't selecting points just so much work? Instead, let's try automatic feature matching using Harris Corners!\n\nNOTE: For this section I had to use images I found online, because my (shattered) phone camera was just not cooperating at all... It was hard enough to get the 2 matching images for the elevator, let alone 3... Images from this section sourced from Wikipedia."
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-partb-1.jpg",
+          "alt": "",
+          "caption": "Left"
+        },
+        {
+          "src": "content/images/syde671-a3-partb-2.jpg",
+          "alt": "",
+          "caption": "Middle"
+        },
+        {
+          "src": "content/images/syde671-a3-partb-3.jpg",
+          "alt": "",
+          "caption": "Right"
+        }
+      ],
+      "caption": "Thanks Wikipedia!"
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.1: Harris Corners and ANMS\nOne way to identify matching features in an image is from Harris response from the image gradients, e.g. where pixel values shift greatly in both dx, dy. But if we just directly apply Harris detection, we get 11,000+ candidate corners in the each image! Most of these are rather unuseful, especially when many points cluster together... Instead, we can filter out bad points by using Adaptive Non-Maximal Suppression (ANMS) to assign each point a radius based on its distance from a stronger point, then just only keep the 500 points with the largest radius to distribute features across the image:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def anms(points, scores):\n    points, scores = points[:3000], scores[:3000] # keep strongest\n    radii = np.full(len(points), np.inf)  # strongest point stays unsuppressed\n    for i in range(1, len(points)):\n        stronger = scores[:i] > scores[i] / 0.9 # check which ones are stronger\n        if stronger.any():\n            radii[i] = ((points[:i][stronger] - points[i]) ** 2).sum(1).min()  # closest stronger distance\n    return points[np.argsort(radii)[::-1][:500]]  # keep largest radii"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-harris.png",
+          "alt": "",
+          "caption": "Detected Harris corners"
+        },
+        {
+          "src": "content/images/syde671-a3-anms.png",
+          "alt": "",
+          "caption": "Spatially distributed corners after ANMS"
+        }
+      ],
+      "caption": "Harris corners + ANMS filtered corners on the middle image"
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.2: Feature Descriptors\nBut now, we need some kind of metric to actually match the points together! Obviously, we cannot just compare pixel values for each point, as that will cause too many false positives. So consider taking a larger sample around the pixel. But comparing big samples would take too long and be very prone to lighting/sampling issues! Luckily, we already have a solution: feature descriptors! For each point, we take a 40x40 sample around it, blur it, convert it to grayscale, downsample to 8x8, and finally normalize it:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def descriptors(image, points):\n    gray = cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), (0, 0), 2).astype(np.float32) / 255\n    good_points, result = [], []\n    for point in points:\n        x, y = point.astype(int)\n        if x < 20 or y < 20 or x >= gray.shape[1] - 20 or y >= gray.shape[0] - 20:\n            continue\n        # note due to misunderstanding my Harris function actually does do subpixel\n        # calculations so I use getRectSubPix here instead of slicing:\n        patch = cv2.getRectSubPix(gray, (40, 40), tuple(point))\n        patch = cv2.resize(patch, (8, 8), interpolation=cv2.INTER_AREA).reshape(-1)\n        patch = (patch - patch.mean()) / max(patch.std(), 1e-6)  # normalize\n        good_points.append(point)\n        result.append(patch)\n    return np.array(good_points), np.array(result)"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/real_descriptors.png",
+          "alt": "",
+          "caption": "8x8 feature descriptors"
+        },
+        {
+          "src": "content/images/syde671-a3-descriptors.png",
+          "alt": "",
+          "caption": "40x40 sample"
+        }
+      ],
+      "caption": "We extract the 8x8 feature descriptor from the corresponding sample on the right. See how you can still kinda see the shapes, but it's much simpler / compressed now!"
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.3: Matching Features\nNow, we actually have to use those feature descriptors to match points together. To find the optimal pairings, we can compare descriptors using squared Euclidean distance. Brown et al. suggests Lowe's ratio test (best distance is smaller than the second-best distance by a threshold and matches must be mutual) with a ratio threshold is 0.7:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def match(a, b):\n    distance = ((a[:, None] - b[None, :]) ** 2).sum(2)  # compare every descriptor pair\n    a_to_b = np.argsort(distance, axis=1)[:, :2]  # find two nearest candidates\n    b_to_a = np.argsort(distance, axis=0)[:2]  # check reverse matching direction\n    matches = []\n    for i, (best, second) in enumerate(a_to_b):\n        forward_ratio = distance[i, best] / distance[i, second]\n        backward_ratio = distance[i, best] / distance[b_to_a[1, best], best]\n        if forward_ratio < 0.7 and b_to_a[0, best] == i and backward_ratio < 0.7:\n            matches.append((i, best))\n    return np.array(matches)"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/matches.png",
+          "alt": "",
+          "caption": ""
+        },
+        {
+          "src": "content/images/matches-1.png",
+          "alt": "",
+          "caption": ""
+        }
+      ],
+      "caption": "Matches are joined by green lines after going through Lowe's ratio test."
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.4: RANSAC and the Final Mosaic\nNow, we note that in the images above, there are some really obvious erroneous matches! This is to be expected, since our feature descriptors can only be so unique, but if these are allowed to influence our homography, we will get some really bad results! So, we can turn to RANSAC in order to help us! RANSAC repeatedly samples four matches from the pool above, estimates a candidate homography from those matches, and counts matches whose reprojection error is small. After 5000 iterations, it recomputes the homography from the inliers of the best model:"
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def ransac(source, destination):\n    best = None\n    for _ in range(5000):\n        chosen = np.random.choice(len(source), 4, replace=False)  # sample 4 distinct matches\n        h = computeH(source[chosen], destination[chosen])\n        projected = h @ np.column_stack((source, np.ones(len(source)))).T\n        projected = (projected[:2] / projected[2]).T\n        inliers = np.linalg.norm(projected - destination, axis=1) < 3 #arbitrary\n        if best is None or inliers.sum() > best.sum():\n            best = inliers\n    return computeH(source[best], destination[best]), best  # refit using best set"
+    },
+    {
+      "type": "image",
+      "src": "content/images/syde671-a3-matches.png",
+      "alt": "",
+      "caption": "Kept lines are in green, discarded ones are in red"
+    },
+    {
+      "type": "text",
+      "md": "Now that we have our homography (we will use bilinear warp for this, since it doesn't have those jagged edges), let's get to blending! We use the middle image as the reference frame, and then apply the left and right to it in succession. For this, we can just use the exact same process as we did for the previous question, albeit done twice."
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "code": "def mosaic_many(images, homographies):\n    result = images[1]\n\n    for i in [0, 2]:\n        H = homographies[i]\n        if i == 2:\n            # Account for the canvas shift caused by the first blend\n            h, w = images[0].shape[:2]\n            corners = homographies[0] @ np.array([\n                [0, 0, 1], [w - 1, 0, 1],\n                [w - 1, h - 1, 1], [0, h - 1, 1]\n            ]).T\n            corners = corners[:2] / corners[2]\n            min_x, min_y = np.floor(corners.min(axis=1)).astype(int)\n            H = np.array([\n                [1, 0, -min(0, min_x)],\n                [0, 1, -min(0, min_y)],\n                [0, 0, 1]\n            ]) @ H\n\n        warped = warpImageBilinear(images[i], H)\n        mask = warpImageBilinear(np.ones(images[i].shape[:2]), H)\n        result = blendMosaic(result, warped, mask, images[i].shape, H)\n        \n    return result"
+    },
+    {
+      "type": "image",
+      "src": "content/images/mosaic_three.png",
+      "alt": "",
+      "caption": "Final three-image mosaic. Note as a result of the consecutive blending (rather than one-shot), the 3rd image blends into the black of the modified first + second images. "
+    },
+    {
+      "type": "text",
+      "md": "### Part 2.4.1 Comparison with Manual Stitching\nI manually selected 15 matches in each overlap:"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/syde671-a3-manual-points-12.png",
+          "alt": "",
+          "caption": "Left and middle image"
+        },
+        {
+          "src": "content/images/syde671-a3-manual-points-23.png",
+          "alt": "",
+          "caption": "Middle and right image"
+        }
+      ],
+      "caption": "Manually selected matches!"
+    },
+    {
+      "type": "text",
+      "md": "Using these matches, we get their homographies, then run the same algorithm as we did for the automatic version:"
+    },
+    {
+      "type": "gallery",
+      "images": [
+        {
+          "src": "content/images/mosaic_three_manual.png",
+          "alt": "",
+          "caption": "Manual mosaic"
+        },
+        {
+          "src": "content/images/mosaic_three-1.png",
+          "alt": "",
+          "caption": "Automatic mosaic"
+        }
+      ],
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "Both of the mosaics do a pretty good job at creating the landscape! I do like the automatic one better, since at least personally I think that the sense of scale is probably more correct in that one, and it seems a bit distorted compared to the automatic mosaic, which keeps the horizon flatter. This is likely due to the fact that the terrain is so sparse in these images, so its harder for humans to detect the correct matches, meanwhile the features can still pick up on details that humans would not be able to pick up on."
+    }
+  ]
+}

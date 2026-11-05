@@ -35,6 +35,8 @@ ALLOWED_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"}
 # them over 100 MB. The request body is base64, a third larger again.
 MAX_UPLOAD = 50 * 1024 * 1024
 MAX_BODY = MAX_UPLOAD * 4 // 3 + 64 * 1024
+POST_WIDTH_MIN = 480
+POST_WIDTH_MAX = 1200
 
 # Only these paths are ever staged. Keeps a stray .env or key out of a
 # commit made by one click, and keeps the diff reviewable.
@@ -309,10 +311,18 @@ class Handler(SimpleHTTPRequestHandler):
         if bird not in {b["id"] for b in read_index()["birds"]}:
             return self.fail(400, f"no such bird: {bird!r}")
 
+        try:
+            width = int(data.get("width", 720))
+        except (TypeError, ValueError):
+            return self.fail(400, "post width must be a number")
+        if not POST_WIDTH_MIN <= width <= POST_WIDTH_MAX:
+            return self.fail(400, f"post width must be between {POST_WIDTH_MIN} and {POST_WIDTH_MAX}px")
+
         post = {
             "title": (data.get("title") or "Untitled").strip(),
             "date": data.get("date") or date.today().isoformat(),
             "bird": bird,
+            "width": width,
             "blocks": data.get("blocks") or [],
         }
         write_json(POSTS / f"{slug}.json", post)

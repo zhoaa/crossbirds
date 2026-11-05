@@ -21,11 +21,11 @@ body {
    the home page stays open so the branches can run edge to edge */
 body[data-view=post]::before, body[data-view=bird]::before {
   content:''; position:fixed; top:0; bottom:0; left:50%; z-index:0;
-  width:min(100%, 860px); transform:translateX(-50%);
+  width:min(100%, var(--post-shell-width, 860px)); transform:translateX(-50%);
   background:rgba(23,45,48,.06); pointer-events:none;
 }
 
-main { position:relative; z-index:1; width:min(100% - 48px, 720px); margin:auto; padding:28px 0 140px; }
+main { position:relative; z-index:1; width:min(100% - 48px, var(--post-width, 720px)); margin:auto; padding:28px 0 140px; }
 
 nav { display:flex; justify-content:space-between; align-items:center;
   font-size:.88rem; font-weight:600; margin-bottom:8px; }

@@ -13,8 +13,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
   <script src="render.js"></script>
   <style>
-    main { padding-top:8px; width:min(100% - 36px, 720px); }
+    main { padding-top:8px; width:min(100% - 36px, var(--post-width, 720px)); }
     body { background:var(--sky); }
+    .preview-block { border-radius:10px; }
+    .preview-block.preview-target { animation:preview-target 1.1s ease-out; }
+    @keyframes preview-target {
+      0% { background:rgba(204, 224, 255, .9); box-shadow:0 0 0 5px rgba(113, 161, 224, .28); }
+      100% { background:transparent; box-shadow:0 0 0 0 transparent; }
+    }
   </style>
 </head>
 <body>
@@ -22,17 +28,32 @@
 <script>
 /* Driven by the editor over postMessage. Same renderer and stylesheet
    as the published page, so what shows here is what ships. */
-const { renderBlocks, hydrate, esc, prettyDate } = window.FieldNotes;
+const { renderBlock, hydrate, esc, prettyDate } = window.FieldNotes;
 const view = document.getElementById('view');
 
-function paint({ title, date, blocks }) {
+function scrollToBlock(index) {
+  const block = view.querySelector(`[data-preview-block="${index}"]`);
+  if (!block) return;
+  block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  block.classList.remove('preview-target');
+  // Restart the animation when the same block is selected repeatedly.
+  void block.offsetWidth;
+  block.classList.add('preview-target');
+}
+
+function paint({ title, date, width, blocks }) {
+  const contentWidth = Number.isFinite(+width) ? +width : 720;
+  document.documentElement.style.setProperty('--post-width', `${contentWidth}px`);
+  document.documentElement.style.setProperty('--post-shell-width', `${contentWidth + 140}px`);
   view.innerHTML = `
     <article class="post">
       <header class="post-head">
         <time>${esc(prettyDate(date))}</time>
         <h1>${esc(title || 'Untitled')}</h1>
       </header>
-      ${blocks && blocks.length ? renderBlocks(blocks)
+      ${blocks && blocks.length ? blocks.map((block, index) =>
+          `<div class="preview-block" data-preview-block="${index}">${renderBlock(block)}</div>`
+        ).join('')
         : '<p class="muted">No blocks yet.</p>'}
     </article>`;
   hydrate(view, { onImage: src => window.open(src, '_blank') });
@@ -44,9 +65,26 @@ addEventListener('message', e => {
     paint(e.data);
     scrollTo(0, y);
   }
+  if (e.data?.kind === 'scroll-to-block') scrollToBlock(e.data.index);
 });
 
-paint({ title: '', date: new Date().toISOString().slice(0, 10), blocks: [] });
+view.addEventListener('click', e => {
+  // Let interactive preview controls retain their normal behavior.
+  if (e.target.closest('a, button, input, textarea, select, label')) return;
+  const block = e.target.closest('[data-preview-block]');
+  if (block) parent.postMessage({ kind:'preview-block-click', index:+block.dataset.previewBlock }, '*');
+});
+
+addEventListener('keydown', e => {
+  if (!e.shiftKey || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  e.preventDefault();
+  parent.postMessage({
+    kind:'set-navigation-mode',
+    mode:e.key === 'ArrowLeft' ? 'editor-to-preview' : 'preview-to-editor'
+  }, '*');
+});
+
+paint({ title: '', date: new Date().toISOString().slice(0, 10), width:720, blocks: [] });
 parent.postMessage({ kind: 'preview-ready' }, '*');
 </script>
 </body>
