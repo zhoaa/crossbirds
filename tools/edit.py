@@ -25,12 +25,14 @@ ROOT = Path(__file__).resolve().parent.parent
 CONTENT = ROOT / "content"
 POSTS = CONTENT / "posts"
 IMAGES = CONTENT / "images"
+AUDIO = CONTENT / "audio"
 INDEX = CONTENT / "index.json"
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 ALLOWED_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"}
+ALLOWED_AUDIO = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm"}
 # Big enough for a long GIF; GitHub warns on files over 50 MB and refuses
 # them over 100 MB. The request body is base64, a third larger again.
 MAX_UPLOAD = 50 * 1024 * 1024
@@ -379,7 +381,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         name = SAFE_NAME_RE.sub("-", data.get("name") or "image").lstrip(".-")
         suffix = Path(name).suffix.lower()
-        if suffix not in ALLOWED_IMAGE:
+        if suffix not in ALLOWED_IMAGE | ALLOWED_AUDIO:
             return self.fail(400, f"unsupported file type: {suffix or 'none'}")
         if not Path(name).stem:
             name = f"image{suffix}"
@@ -393,8 +395,9 @@ class Handler(SimpleHTTPRequestHandler):
         if len(blob) > MAX_UPLOAD:
             return self.fail(413, f"file too large (limit {MAX_UPLOAD // 2**20} MB)")
 
-        IMAGES.mkdir(parents=True, exist_ok=True)
-        target = IMAGES / name
+        media_dir = AUDIO if suffix in ALLOWED_AUDIO else IMAGES
+        media_dir.mkdir(parents=True, exist_ok=True)
+        target = media_dir / name
         stem, n = target.stem, 1
         while target.exists():
             target = IMAGES / f"{stem}-{n}{suffix}"
@@ -409,6 +412,7 @@ class Handler(SimpleHTTPRequestHandler):
 def main(port: int = 4000):
     POSTS.mkdir(parents=True, exist_ok=True)
     IMAGES.mkdir(parents=True, exist_ok=True)
+    AUDIO.mkdir(parents=True, exist_ok=True)
     if not INDEX.exists() or "birds" not in json.loads(INDEX.read_text()):
         write_index(read_index())
 

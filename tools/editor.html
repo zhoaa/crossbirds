@@ -179,6 +179,11 @@ const SCHEMA = {
                         { k:'alt', t:'text', label:'Alt text' },
                         { k:'caption', t:'text', label:'Caption' },
                         { k:'height', t:'number', label:'Height (px)', placeholder:'auto' } ] },
+  music:     { label:'Music',     hint:'An audio player',
+               fields:[ { k:'src', t:'audio', label:'Audio file' },
+                        { k:'title', t:'text', label:'Title' },
+                        { k:'artist', t:'text', label:'Artist' },
+                        { k:'caption', t:'text', label:'Caption' } ] },
   gallery:   { label:'Gallery',   hint:'Grid, click to enlarge',
                fields:[ { k:'images', t:'items', label:'Images',
                           item:[ {k:'src',t:'image'}, {k:'alt',t:'text',placeholder:'Alt text'},
@@ -204,6 +209,7 @@ const BLANK = {
   code:      () => ({ type:'code', draft:true, language:'python', code:'' }),
   python:    () => ({ type:'python', draft:true, packages:[], autorun:false, code:'' }),
   image:     () => ({ type:'image', draft:true, src:'', alt:'', caption:'' }),
+  music:     () => ({ type:'music', draft:true, src:'', title:'', artist:'', caption:'' }),
   gallery:   () => ({ type:'gallery', draft:true, images:[], caption:'' }),
   slideshow: () => ({ type:'slideshow', draft:true, slides:[], caption:'' }),
   math:      () => ({ type:'math', draft:true, tex:'', caption:'' }),
@@ -508,6 +514,9 @@ function field(f, b, i) {
     case 'image':
       return `<div class="f">${label}${imageField(v, { i, k:f.k })}</div>`;
 
+    case 'audio':
+      return `<div class="f">${label}${audioField(v, { i, k:f.k })}</div>`;
+
     case 'items':
       return `<div class="f">${label}
         <div class="items">
@@ -539,6 +548,17 @@ function imageField(v, { i, k, j, sub, slim }) {
     <div class="img-prev">${v ? `<img src="/${esc(v)}" alt="">` : `<span class="ico" data-i="image"></span>`}</div>
     <div class="img-ctl">
       <input type="text" ${d} value="${esc(v)}" placeholder="drop an image, or paste a path">
+      <button class="btn small ghost" data-pick="1">Choose</button>
+    </div>
+  </div>`;
+}
+
+function audioField(v, { i, k }) {
+  const d = `data-i="${i}" data-k="${k}"`;
+  return `<div class="audio-field" ${d}>
+    ${v ? `<audio controls preload="metadata" src="/${esc(v)}"></audio>` : '<span class="audio-empty">Choose an audio file to add a player.</span>'}
+    <div class="img-ctl">
+      <input type="text" ${d} value="${esc(v)}" placeholder="drop an audio file, or paste a path">
       <button class="btn small ghost" data-pick="1">Choose</button>
     </div>
   </div>`;
@@ -707,11 +727,11 @@ function wireBlocks() {
     }));
 
   // image pick + drop
-  wrap.querySelectorAll('.img-field').forEach(fieldEl => {
+  wrap.querySelectorAll('.img-field, .audio-field').forEach(fieldEl => {
     const input = fieldEl.querySelector('input[type=text]');
     const set = path => { input.value = path; input.dispatchEvent(new Event('input')); paintBlocks(); };
     fieldEl.querySelector('[data-pick]').addEventListener('click', e => {
-      e.stopPropagation(); pickFile(set);
+      e.stopPropagation(); pickFile(set, fieldEl.classList.contains('audio-field') ? 'audio/*' : 'image/*');
     });
     fieldEl.addEventListener('dragover', e => { e.preventDefault(); fieldEl.classList.add('over'); });
     fieldEl.addEventListener('dragleave', () => fieldEl.classList.remove('over'));
@@ -774,9 +794,9 @@ function wireDrag() {
 
 /* ---------- uploads ---------- */
 
-function pickFile(then) {
+function pickFile(then, accept = 'image/*') {
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*';
+  inp.type = 'file'; inp.accept = accept;
   inp.onchange = async () => { if (inp.files[0]) then(await upload(inp.files[0])); };
   inp.click();
 }

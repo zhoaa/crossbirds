@@ -112,6 +112,17 @@ window.FieldNotes = (() => {
       ${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ""}
     </figure>`,
 
+    music: (b) => b.src ? `
+    <figure class="b-music">
+      <div class="music-meta">
+        <span class="music-note" aria-hidden="true">♫</span>
+        <div>${b.title ? `<strong>${esc(b.title)}</strong>` : '<strong>Audio</strong>'}
+          ${b.artist ? `<span>${esc(b.artist)}</span>` : ''}</div>
+      </div>
+      <audio controls preload="metadata" src="${esc(b.src)}">Your browser does not support audio playback.</audio>
+      ${b.caption ? `<figcaption>${esc(b.caption)}</figcaption>` : ""}
+    </figure>` : '<figure class="b-music empty">Choose an audio file in the editor.</figure>',
+
     code: (b) => `
     <div class="b-code">
       ${b.language ? `<span class="lang">${esc(b.language)}</span>` : ""}

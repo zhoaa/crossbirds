@@ -136,13 +136,23 @@ nav a:first-child::before { content:'← '; }
   border-left:3px solid var(--blue); color:var(--dim); }
 
 /* ── block: image ── */
-.b-image, .b-gallery, .b-slideshow { margin:0 0 34px; }
+.b-image, .b-gallery, .b-slideshow, .b-music { margin:0 0 34px; }
 .b-image img { width:100%; border-radius:12px; display:block; }
 /* a set height: scale the whole image to that height, centred, never
    wider than the column */
 .b-image.sized img { width:auto; max-width:100%; height:var(--h); margin:0 auto;
   object-fit:contain; }
 figcaption { margin-top:11px; font-size:.86rem; color:var(--dim); line-height:1.5; }
+
+/* ── block: music ── */
+.b-music { padding:18px 20px; border-radius:12px; background:var(--panel-solid); }
+.b-music.empty { color:var(--dim); font-size:.9rem; }
+.music-meta { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.music-note { display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--blue); font-size:1.1rem; }
+.music-meta strong, .music-meta span { display:block; }
+.music-meta strong { font-size:.92rem; }
+.music-meta span { margin-top:1px; font-size:.8rem; color:var(--dim); }
+.b-music audio { display:block; width:100%; height:38px; }
 
 /* ── block: code ── */
 .b-code { position:relative; margin:0 0 34px; }

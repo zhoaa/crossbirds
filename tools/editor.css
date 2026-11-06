@@ -234,6 +234,10 @@ textarea.mono { font:.85rem/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
 .img-ctl { flex:1; min-width:0; display:flex; gap:6px; align-items:center; }
 .img-ctl input { margin-top:0; font-size:.83rem; background:var(--white); }
 .img-field.slim .img-prev { flex:0 0 46px; height:34px; }
+.audio-field { display:flex; flex-direction:column; gap:8px; margin-top:5px; padding:9px; border-radius:9px; background:var(--shell); }
+.audio-field audio { width:100%; height:34px; }
+.audio-empty { font-size:.82rem; color:var(--dimmer); }
+.audio-field .img-ctl input { background:var(--white); }
 
 /* ── repeating items ── */
 .items { margin-top:5px; display:flex; flex-direction:column; gap:7px; align-items:flex-start; }
