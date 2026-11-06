@@ -216,7 +216,7 @@
         ${renderBlocks(post.blocks)}
         <a class="back bottom" ${back}</a>
       </article>`;
-          hydrate(view, { onImage: openLightbox });
+          hydrate(view, { onImage: openLightbox, autoplayMusic: true });
         } catch {
           document.title = "Not found — Crossbirds";
           view.innerHTML = `

@@ -113,7 +113,8 @@ window.FieldNotes = (() => {
     </figure>`,
 
     music: (b) => b.src ? `
-    <figure class="b-music">
+    <figure class="b-music" data-autoplay="${b.autoplay ? "true" : "false"}"
+            data-autoplay-delay="${Math.max(0, Number(b.autoplayDelay) || 0)}">
       <div class="music-meta">
         <span class="music-note" aria-hidden="true">♫</span>
         <div>${b.title ? `<strong>${esc(b.title)}</strong>` : '<strong>Audio</strong>'}
@@ -312,7 +313,16 @@ json.dumps(_figs)
   /* ---------- hydration ----------
    `onImage` lets the host decide what clicking a gallery shot does.  */
 
-  function hydrate(root, { onImage } = {}) {
+  function hydrate(root, { onImage, autoplayMusic = false } = {}) {
+    if (autoplayMusic) root.querySelectorAll('.b-music[data-autoplay="true"]').forEach((el) => {
+      const audio = el.querySelector('audio');
+      const delay = Math.max(0, Number(el.dataset.autoplayDelay) || 0) * 1000;
+      window.setTimeout(() => audio?.play().catch(() => {
+        // Browsers may require a prior user gesture. The visible player
+        // remains available when that policy blocks automatic playback.
+      }), delay);
+    });
+
     root.querySelectorAll(".b-gallery .shot").forEach((btn) => {
       btn.addEventListener("click", () => onImage?.(btn.dataset.full));
 

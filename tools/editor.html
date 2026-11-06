@@ -183,6 +183,8 @@ const SCHEMA = {
                fields:[ { k:'src', t:'audio', label:'Audio file' },
                         { k:'title', t:'text', label:'Title' },
                         { k:'artist', t:'text', label:'Artist' },
+                        { k:'autoplay', t:'bool', label:'Play automatically when this post opens' },
+                        { k:'autoplayDelay', t:'number', label:'Play delay (seconds)', min:'0', step:'0.5', placeholder:'0' },
                         { k:'caption', t:'text', label:'Caption' } ] },
   gallery:   { label:'Gallery',   hint:'Grid, click to enlarge',
                fields:[ { k:'images', t:'items', label:'Images',
@@ -209,7 +211,7 @@ const BLANK = {
   code:      () => ({ type:'code', draft:true, language:'python', code:'' }),
   python:    () => ({ type:'python', draft:true, packages:[], autorun:false, code:'' }),
   image:     () => ({ type:'image', draft:true, src:'', alt:'', caption:'' }),
-  music:     () => ({ type:'music', draft:true, src:'', title:'', artist:'', caption:'' }),
+  music:     () => ({ type:'music', draft:true, src:'', title:'', artist:'', autoplay:false, autoplayDelay:0, caption:'' }),
   gallery:   () => ({ type:'gallery', draft:true, images:[], caption:'' }),
   slideshow: () => ({ type:'slideshow', draft:true, slides:[], caption:'' }),
   math:      () => ({ type:'math', draft:true, tex:'', caption:'' }),
@@ -508,7 +510,7 @@ function field(f, b, i) {
 
     case 'number':
       return `<label class="f narrow">${label}
-        <input type="number" data-i="${i}" data-k="${f.k}" min="40" step="10"
+        <input type="number" data-i="${i}" data-k="${f.k}" min="${esc(f.min ?? '40')}" step="${esc(f.step ?? '10')}"
           value="${esc(v)}" placeholder="${esc(f.placeholder)}"></label>`;
 
     case 'image':
@@ -690,7 +692,10 @@ function wireBlocks() {
       const { i, k, j, sub } = el.dataset;
       let val = el.type === 'checkbox' ? el.checked : el.value;
       if (el.dataset.list) val = val.split(',').map(s => s.trim()).filter(Boolean);
-      if (el.type === 'number') val = el.value === '' ? null : Math.round(+el.value);
+      if (el.type === 'number') {
+        const step = Number(el.step);
+        val = el.value === '' ? null : step > 0 && step < 1 ? +el.value : Math.round(+el.value);
+      }
       if (j !== undefined) doc.blocks[i][k][j][sub] = val;
       else doc.blocks[i][k] = val;
       paintDirty();
