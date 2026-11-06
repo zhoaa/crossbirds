@@ -41,6 +41,7 @@
       <div class="topbar-right">
         <a class="btn ghost" href="/" target="_blank" rel="noopener" title="Open the full local Crossbirds site in a new tab">View site</a>
         <button id="shortcuts-open" class="btn ghost" title="Keyboard shortcuts">Shortcuts</button>
+        <button id="save-pdf" class="btn ghost" title="Open this post in a print-ready view">Save PDF</button>
         <button id="toggle-preview" class="btn icon-only" title="Toggle preview"><span class="ico" data-i="eye"></span></button>
         <button id="delete" class="btn subtle"><span class="ico" data-i="trash"></span></button>
         <button id="publish-open" class="btn"><span class="ico" data-i="branch"></span>Publish</button>
@@ -222,6 +223,7 @@ let navigationMode = 'editor-to-preview';
 let selectedBlock = 0;
 let insertPicker = null;
 let insertChoiceIndex = 0;
+let pdfWindow = null;
 const collapsed = new WeakSet();
 
 const $ = id => document.getElementById(id);
@@ -292,6 +294,9 @@ addEventListener('message', e => {
   if (e.data?.kind === 'preview-ready') { previewReady = true; pushPreview(); }
   if (e.data?.kind === 'preview-block-click') revealEditorBlock(e.data.index);
   if (e.data?.kind === 'set-navigation-mode') setNavigationMode(e.data.mode);
+  if (e.data?.kind === 'pdf-ready' && e.source === pdfWindow && doc) {
+    pdfWindow.postMessage({ kind:'pdf-post', post:structuredClone(doc) }, location.origin);
+  }
 });
 
 /* ---------- post list ---------- */
@@ -1035,6 +1040,14 @@ $('toggle-preview').addEventListener('click', () => {
 });
 $('shortcuts-open').addEventListener('click', () => $('shortcuts-modal').classList.remove('hidden'));
 $('shortcuts-close').addEventListener('click', () => $('shortcuts-modal').classList.add('hidden'));
+$('save-pdf').addEventListener('click', () => {
+  if (!doc) return;
+  pdfWindow = window.open('/tools/pdf.html', 'crossbirds-pdf');
+  if (!pdfWindow) return toast('Allow pop-ups to save a PDF', true);
+  // An existing PDF tab is ready already; a newly opened one replies with
+  // `pdf-ready` once its renderer has loaded.
+  pdfWindow.postMessage({ kind:'pdf-post', post:structuredClone(doc) }, location.origin);
+});
 
 ['m-title', 'm-slug', 'm-date', 'm-summary', 'm-width'].forEach(id =>
   $(id).addEventListener('input', () => {
