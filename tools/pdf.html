@@ -14,39 +14,41 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js"></script>
   <script src="render.js"></script>
   <style>
-    @page { size:auto; margin:18mm 0; }
-    body { background:#fff; }
-    body::before { display:none; }
-    main { width:min(100%, var(--post-width, 720px)); padding:0 0 32px; }
+    @page { margin:18mm 15mm; }
     .pdf-actions { display:flex; align-items:center; justify-content:space-between; gap:16px;
       max-width:720px; margin:24px auto; padding:13px 16px; border-radius:10px; background:#eaf6f4; }
     .pdf-actions p { margin:0; font:14px/1.4 'Cabin', sans-serif; color:var(--dim); }
     .pdf-actions button { border:0; border-radius:8px; padding:8px 13px; cursor:pointer; background:var(--ink); color:var(--white); font:600 14px 'Cabin', sans-serif; white-space:nowrap; }
+    /* Keep a whole rendered block on one page whenever it fits. The block's
+       own styles remain untouched, so its screen and PDF layouts match. */
     .pdf-block { break-inside:avoid-page; page-break-inside:avoid; }
-    .pdf-block > * { break-inside:avoid-page; page-break-inside:avoid; }
+    /* Code is the deliberate exception: a long line or a large listing must
+       never be hidden by the screen-only horizontal scroller. In print it
+       wraps and can continue on the next page, preserving every character. */
+    .pdf-block.pdf-code-block { break-inside:auto; page-break-inside:auto; }
     @media print {
-      html, body { margin:0; padding:0; background:#fff; }
-      body { font-size:11pt; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      html, body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .pdf-actions { display:none; }
-      /* The page rule gives every page vertical space; this physical inset
-         keeps left and right whitespace even with browser margins disabled. */
-      main { width:100%; max-width:none; margin:0; padding:0 15mm; }
-      .post-head { padding-top:0; }
-      .pdf-block { break-inside:avoid-page; page-break-inside:avoid; }
+      .pdf-code-block .b-code pre { overflow:visible; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
+      .pdf-code-block .py-actions { display:none; }
+      .pdf-python-code { margin:0; padding:4px 20px 18px; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word;
+        font:.86rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
     }
   </style>
 </head>
 <body>
   <div class="pdf-actions" id="pdf-actions">
-    <p>Blocks stay together between pages when they fit. Choose <strong>Save as PDF</strong> in the next dialog.</p>
-    <button id="print">Save as PDF</button>
+    <p id="pdf-status">Preparing the post layout…</p>
+    <button id="print" disabled>Save as PDF</button>
   </div>
   <main><div id="view"><p class="muted">Preparing post…</p></div></main>
   <script>
     const { renderBlock, hydrate, esc, prettyDate } = window.FieldNotes;
     const view = document.getElementById('view');
+    const printButton = document.getElementById('print');
+    const pdfStatus = document.getElementById('pdf-status');
 
-    function paint(post) {
+    async function paint(post) {
       const width = Number.isFinite(+post.width) ? Math.min(1200, Math.max(480, +post.width)) : 720;
       document.documentElement.style.setProperty('--post-width', `${width}px`);
       document.title = `${post.title || 'Post'} — PDF`;
@@ -60,6 +62,28 @@
         </article>`;
       view.querySelectorAll('img').forEach(img => { img.loading = 'eager'; });
       hydrate(view, { onImage: src => window.open(src, '_blank') });
+      view.querySelectorAll('.pdf-block').forEach(block => {
+        if (!block.querySelector('.b-code, .b-python')) return;
+        block.classList.add('pdf-code-block');
+        // Textareas print only their visible area in some browsers. Replace
+        // runnable-Python editors with equivalent flowing code for the PDF.
+        block.querySelectorAll('.py-code').forEach(textarea => {
+          const pre = document.createElement('pre');
+          pre.className = 'pdf-python-code';
+          pre.textContent = textarea.value;
+          textarea.replaceWith(pre);
+        });
+      });
+      const images = [...view.querySelectorAll('img')];
+      await Promise.all(images.map(img => img.complete
+        ? Promise.resolve()
+        : new Promise(resolve => {
+            img.addEventListener('load', resolve, { once:true });
+            img.addEventListener('error', resolve, { once:true });
+          })));
+      await document.fonts?.ready;
+      printButton.disabled = false;
+      pdfStatus.innerHTML = 'Ready. Blocks stay together between pages when they fit. Choose <strong>Save as PDF</strong> in the next dialog.';
     }
 
     addEventListener('message', e => {
