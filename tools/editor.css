@@ -147,11 +147,15 @@ input[type=text], input[type=date], input[type=number], textarea {
   display:block; width:100%; margin-top:5px; padding:9px 11px; border:none; border-radius:8px;
   background:var(--shell); color:var(--ink); font:.95rem 'Cabin', sans-serif; }
 .meta-card input { background:var(--panel); }
+.meta-card select { display:block; width:100%; margin-top:5px; padding:9px 11px; border:none; border-radius:8px;
+  background:var(--panel); color:var(--ink); font:.95rem 'Cabin', sans-serif; }
+.autoplay-settings { display:grid; grid-template-columns:1fr 145px; gap:11px; }
 .width-control { display:grid; grid-template-columns:1fr auto; gap:5px 10px; align-items:center; }
 .width-control output { font-size:.8rem; font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink); }
 .width-control input[type=range] { grid-column:1 / -1; width:100%; margin:0; accent-color:var(--ink); }
 .width-control small { grid-column:1 / -1; font-size:.76rem; font-weight:400; letter-spacing:0; text-transform:none; color:var(--dimmer); }
 input:focus, textarea:focus { outline:2px solid var(--blue); }
+.meta-card select:focus { outline:2px solid var(--blue); }
 textarea { resize:vertical; line-height:1.6; }
 textarea.mono { font:.85rem/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
@@ -313,5 +317,6 @@ kbd { display:inline-block; margin:0 3px 3px 0; padding:2px 6px; border:1px soli
   #preview-pane { display:none; }
   #sidebar { width:200px; flex-basis:200px; }
   .meta-card { grid-template-columns:1fr; }
+  .autoplay-settings { grid-template-columns:1fr; }
   .shortcut-list div { grid-template-columns:1fr; gap:4px; }
 }

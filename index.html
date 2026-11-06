@@ -205,6 +205,9 @@
             ? `href="#/bird/${encodeURIComponent(bird.id)}">${esc(bird.name)}`
             : 'href="#/">Categories';
           setPostWidth(post.width);
+          const postBlocks = (post.blocks || []).map(block => block.type === 'music'
+            ? { ...block, autoplay:block.src === post.autoplayMusic, autoplayDelay:post.autoplayDelay }
+            : block);
           document.title = `${post.title} — Crossbirds`;
           view.innerHTML = `
       <article class="post">
@@ -213,7 +216,7 @@
           <time>${esc(prettyDate(post.date))}</time>
           <h1>${esc(post.title)}</h1>
         </header>
-        ${renderBlocks(post.blocks)}
+        ${renderBlocks(postBlocks)}
         <a class="back bottom" ${back}</a>
       </article>`;
           hydrate(view, { onImage: openLightbox, autoplayMusic: true });

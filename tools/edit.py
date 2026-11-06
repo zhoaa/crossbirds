@@ -320,11 +320,23 @@ class Handler(SimpleHTTPRequestHandler):
         if not POST_WIDTH_MIN <= width <= POST_WIDTH_MAX:
             return self.fail(400, f"post width must be between {POST_WIDTH_MIN} and {POST_WIDTH_MAX}px")
 
+        autoplay_music = data.get("autoplayMusic") or ""
+        if not isinstance(autoplay_music, str):
+            return self.fail(400, "auto-play music must be a file path")
+        try:
+            autoplay_delay = max(0, float(data.get("autoplayDelay", 0)))
+        except (TypeError, ValueError):
+            return self.fail(400, "auto-play delay must be a number")
+        if autoplay_delay > 3600:
+            return self.fail(400, "auto-play delay must be at most 3600 seconds")
+
         post = {
             "title": (data.get("title") or "Untitled").strip(),
             "date": data.get("date") or date.today().isoformat(),
             "bird": bird,
             "width": width,
+            "autoplayMusic": autoplay_music or None,
+            "autoplayDelay": autoplay_delay,
             "blocks": data.get("blocks") or [],
         }
         write_json(POSTS / f"{slug}.json", post)

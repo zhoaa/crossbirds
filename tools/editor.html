@@ -58,6 +58,10 @@
           <input type="range" id="m-width" min="480" max="1200" step="20" value="720">
           <small>Text blocks and other post content resize with this.</small>
         </label>
+        <div class="wide autoplay-settings">
+          <label>Auto-play music<select id="m-autoplay-music"></select></label>
+          <label>Delay (seconds)<input type="number" id="m-autoplay-delay" min="0" step="0.5" value="0"></label>
+        </div>
         <label>Slug<input type="text" id="m-slug" placeholder="url-slug"></label>
         <label>Date<input type="date" id="m-date"></label>
       </div>
@@ -183,8 +187,6 @@ const SCHEMA = {
                fields:[ { k:'src', t:'audio', label:'Audio file' },
                         { k:'title', t:'text', label:'Title' },
                         { k:'artist', t:'text', label:'Artist' },
-                        { k:'autoplay', t:'bool', label:'Play automatically when this post opens' },
-                        { k:'autoplayDelay', t:'number', label:'Play delay (seconds)', min:'0', step:'0.5', placeholder:'0' },
                         { k:'caption', t:'text', label:'Caption' } ] },
   gallery:   { label:'Gallery',   hint:'Grid, click to enlarge',
                fields:[ { k:'images', t:'items', label:'Images',
@@ -211,7 +213,7 @@ const BLANK = {
   code:      () => ({ type:'code', draft:true, language:'python', code:'' }),
   python:    () => ({ type:'python', draft:true, packages:[], autorun:false, code:'' }),
   image:     () => ({ type:'image', draft:true, src:'', alt:'', caption:'' }),
-  music:     () => ({ type:'music', draft:true, src:'', title:'', artist:'', autoplay:false, autoplayDelay:0, caption:'' }),
+  music:     () => ({ type:'music', draft:true, src:'', title:'', artist:'', caption:'' }),
   gallery:   () => ({ type:'gallery', draft:true, images:[], caption:'' }),
   slideshow: () => ({ type:'slideshow', draft:true, slides:[], caption:'' }),
   math:      () => ({ type:'math', draft:true, tex:'', caption:'' }),
@@ -371,6 +373,8 @@ async function openPost(slug) {
     summary: meta.summary || '',
     cover: meta.cover || null,
     width: post.width || 720,
+    autoplayMusic: post.autoplayMusic || '',
+    autoplayDelay: post.autoplayDelay ?? 0,
     blocks: post.blocks || []
   };
   paintAll();
@@ -380,7 +384,8 @@ async function openPost(slug) {
 function newPost() {
   if (!confirmDiscard()) return;
   doc = { slug:'', title:'', date:new Date().toISOString().slice(0,10),
-          bird: birds[0]?.id || '', summary:'', cover:null, width:720, blocks:[] };
+          bird: birds[0]?.id || '', summary:'', cover:null, width:720,
+          autoplayMusic:'', autoplayDelay:0, blocks:[] };
   paintAll();
   $('m-title').focus();
 }
@@ -398,6 +403,7 @@ function paintAll() {
   $('m-summary').value = doc.summary || '';
   $('m-width').value = doc.width || 720;
   $('m-width-value').value = `${$('m-width').value}px`;
+  paintAutoplayMusic();
   $('slug-label').textContent = doc.slug ? `content/posts/${doc.slug}.json` : 'unsaved';
   paintBirdPick();
   paintBlocks();
@@ -454,7 +460,21 @@ function paintBlocks() {
   }).join('');
   paintIcons(wrap);
   wireBlocks();
+  paintAutoplayMusic();
   pushPreview();
+}
+
+function paintAutoplayMusic() {
+  const select = $('m-autoplay-music');
+  const tracks = doc?.blocks.filter(b => b.type === 'music' && b.src) || [];
+  select.innerHTML = `<option value="">Don't auto-play</option>` + tracks.map((track, i) =>
+    `<option value="${esc(track.src)}">${esc(track.title || track.artist || `Music track ${i + 1}`)}</option>`
+  ).join('');
+  if (doc && doc.autoplayMusic && !tracks.some(track => track.src === doc.autoplayMusic)) doc.autoplayMusic = '';
+  select.value = doc?.autoplayMusic || '';
+  select.disabled = !tracks.length;
+  $('m-autoplay-delay').value = doc?.autoplayDelay ?? 0;
+  $('m-autoplay-delay').disabled = !doc?.autoplayMusic;
 }
 
 /* which bird this post sits under */
@@ -1084,6 +1104,16 @@ $('save-pdf').addEventListener('click', () => {
     $('m-width-value').value = `${doc.width}px`;
     paintDirty();
   }));
+
+$('m-autoplay-music').addEventListener('change', () => {
+  doc.autoplayMusic = $('m-autoplay-music').value;
+  paintAutoplayMusic();
+  paintDirty();
+});
+$('m-autoplay-delay').addEventListener('input', () => {
+  doc.autoplayDelay = $('m-autoplay-delay').value === '' ? 0 : Math.max(0, +$('m-autoplay-delay').value);
+  paintDirty();
+});
 
 $('add-buttons').innerHTML = Object.entries(SCHEMA).map(([k, v]) =>
   `<button class="add-chip" data-add="${k}" title="${esc(v.hint)}">
