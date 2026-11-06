@@ -25,7 +25,7 @@ body[data-view=post]::before, body[data-view=bird]::before {
   background:rgba(23,45,48,.06); pointer-events:none;
 }
 
-main { position:relative; z-index:1; width:min(100% - 48px, var(--post-width, 720px)); margin:auto; padding:28px 0 140px; }
+main { position:relative; z-index:1; width:min(calc(100% - 48px), var(--post-width, 720px)); margin:auto; padding:28px 0 140px; }
 
 nav { display:flex; justify-content:space-between; align-items:center;
   font-size:.88rem; font-weight:600; margin-bottom:8px; }
@@ -253,7 +253,7 @@ figcaption { margin-top:11px; font-size:.86rem; color:var(--dim); line-height:1.
 .lightbox img { max-width:100%; max-height:100%; border-radius:10px; display:block; }
 
 @media (max-width:700px) {
-  main { width:min(100% - 32px, 720px); }
+  main { width:min(calc(100% - 32px), var(--post-width, 720px)); }
   .masthead { padding:44px 0 36px; }
   .card a { padding:22px 20px; }
   .card h2 { font-size:1.35rem; }

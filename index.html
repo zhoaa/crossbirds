@@ -47,9 +47,14 @@
       const view = document.getElementById("view");
 
       function setPostWidth(width = 720) {
-        const contentWidth = Number.isFinite(+width) ? +width : 720;
+        const contentWidth = Number.isFinite(+width)
+          ? Math.min(1200, Math.max(480, +width))
+          : 720;
+        const shellWidth = contentWidth + 140;
         document.documentElement.style.setProperty("--post-width", `${contentWidth}px`);
-        document.documentElement.style.setProperty("--post-shell-width", `${contentWidth + 140}px`);
+        document.documentElement.style.setProperty("--post-shell-width", `${shellWidth}px`);
+        document.body.style.setProperty("--post-shell-width", `${shellWidth}px`);
+        document.querySelector("main").style.setProperty("--post-width", `${contentWidth}px`);
       }
 
       async function getJSON(url) {
