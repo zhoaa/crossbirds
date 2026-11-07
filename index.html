@@ -35,6 +35,7 @@
     </main>
 
     <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close full-size image">×</button>
       <img id="lightbox-img" src="" alt="" />
     </div>
 
@@ -232,15 +233,26 @@
       }
 
       const lightbox = document.getElementById("lightbox");
-      function openLightbox(src) {
-        document.getElementById("lightbox-img").src = src;
+      const lightboxClose = document.getElementById("lightbox-close");
+      let lightboxReturnFocus = null;
+      function openLightbox(src, alt = "") {
+        lightboxReturnFocus = document.activeElement;
+        const image = document.getElementById("lightbox-img");
+        image.src = src;
+        image.alt = alt;
         lightbox.classList.remove("hidden");
+        lightboxClose.focus({ preventScroll: true });
       }
-      lightbox.addEventListener("click", () =>
-        lightbox.classList.add("hidden"),
-      );
+      function closeLightbox() {
+        lightbox.classList.add("hidden");
+        lightboxReturnFocus?.focus?.({ preventScroll: true });
+      }
+      lightboxClose.addEventListener("click", closeLightbox);
+      lightbox.addEventListener("click", (e) => {
+        if (e.target === lightbox) closeLightbox();
+      });
       addEventListener("keydown", (e) => {
-        if (e.key === "Escape") lightbox.classList.add("hidden");
+        if (e.key === "Escape" && !lightbox.classList.contains("hidden")) closeLightbox();
       });
 
       function route() {

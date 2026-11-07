@@ -259,8 +259,14 @@ figcaption { margin-top:11px; font-size:.86rem; color:var(--dim); line-height:1.
 
 /* ── lightbox ── */
 .lightbox { position:fixed; inset:0; z-index:300; display:grid; place-items:center;
-  padding:5vmin; background:rgba(23,45,48,.86); cursor:zoom-out; }
-.lightbox img { max-width:100%; max-height:100%; border-radius:10px; display:block; }
+  padding:3vmin; background:rgba(23,45,48,.9); cursor:default; }
+.lightbox img { max-width:min(94vw, 1800px); max-height:92vh; border-radius:10px; display:block;
+  box-shadow:0 20px 70px rgba(0,0,0,.36); }
+.lightbox-close { position:absolute; top:18px; right:18px; z-index:1; display:grid; place-items:center;
+  width:42px; height:42px; border:0; border-radius:50%; background:var(--white); color:var(--ink);
+  cursor:pointer; font:400 2rem/1 Arial, sans-serif; box-shadow:0 4px 16px rgba(0,0,0,.22); }
+.lightbox-close:hover, .lightbox-close:focus-visible { background:var(--blue); outline:none; }
+.zoomable { cursor:zoom-in; }
 
 @media (max-width:700px) {
   main { width:min(calc(100% - 32px), var(--post-width, 720px)); }

@@ -324,7 +324,7 @@ json.dumps(_figs)
     });
 
     root.querySelectorAll(".b-gallery .shot").forEach((btn) => {
-      btn.addEventListener("click", () => onImage?.(btn.dataset.full));
+      btn.addEventListener("click", () => onImage?.(btn.dataset.full, btn.querySelector('img')?.alt || ''));
 
       // The justified layout in style.css sizes each shot by its aspect
       // ratio, which is only known once the image has loaded.
@@ -335,6 +335,15 @@ json.dumps(_figs)
       };
       if (img.complete) measure();
       else img.addEventListener("load", measure, { once: true });
+    });
+
+    // A photo block is just as useful to inspect as a gallery image. Keep
+    // intentionally linked Markdown images as links rather than overriding
+    // their author-supplied destination.
+    root.querySelectorAll('.b-image img, .prose img, .py-figure, .b-slideshow .slide').forEach((img) => {
+      if (img.closest('a')) return;
+      img.classList.add('zoomable');
+      img.addEventListener('click', () => onImage?.(img.currentSrc || img.src, img.alt || ''));
     });
 
     root.querySelectorAll(".b-slideshow").forEach((el) => {
