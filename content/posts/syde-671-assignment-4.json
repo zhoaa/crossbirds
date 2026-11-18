@@ -1,0 +1,190 @@
+{
+  "title": "SYDE 671 Assignment 4",
+  "date": "2026-11-17",
+  "bird": "coursework",
+  "width": 880,
+  "autoplayMusic": null,
+  "autoplayDelay": 0,
+  "blocks": [
+    {
+      "type": "text",
+      "md": "# Part 1: Fundamental Matrix Estimation From Point Correspondences\n\nFor this section, we are given two sets of point correspondences, which each originate from a pair of viewpoints around a house. We need to find a way to find the fundamental matrix of each of these scene pairs."
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.b: Linear Eight-Point Algorithm\n\nSo what can we do with these correspondences? Well, by definition each correspondence is a pair of image points that represent the same location in the scene. So, our, fundamental matrix $F$ must satisfy $x_2^T F x_1=0$, where $x_1=(u_1,v_1,1)$ and $x_2=(u_2,v_2,1)$. Expanding this expression gives us:\n\n$u_2 u_1 F_{11}+u_2 v_1 F_{12}+u_2 F_{13}+v_2 u_1 F_{21}+v_2 v_1 F_{22}+v_2 F_{23}+u_1 F_{31}+v_1 F_{32}+F_{33}=0$.\n\nWe can then rearrange the nine unknown entries into a vector f, with the correspondences becoming design matrix A: $[u2*u1, u2*v1, u2, v2*u1, v2*v1, v2, u1, v1, 1]$. Repeating this for all N matches produces an N×9 system $Af=0$, where each match contributes one equation (to determine the system note we only need 8, hence the name of the algorithm, since we can scale by $F_{33}$).\n\nHowever, because of noise in measurements, there may be no (nonzero) f satisfying every equation exactly. Instead, we can estimate F using the vector that makes the sum of squared entries of Af as small as possible. We use SVD to find this least-squares solution (note we need to constrain f to unit length to avoid the all-zero solution), then reshape it into a 3x3 matrix.\n\nFinally, we enforce the fundamental matrix’s rank-two constraint by applying a second SVD and setting its smallest singular value to zero. This gives us a rank-two estimate of F that approximately satisfies the correspondence equations:\n\n**Set 1:**"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[[ 1.55218081e-06 -8.18161523e-06 -1.50440111e-03]\n [-5.86997052e-06 -3.02892219e-07 -1.13607605e-02]\n [-3.52312036e-03  1.41453881e-02  9.99828068e-01]]"
+    },
+    {
+      "type": "text",
+      "md": "**Set 2:**"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[[-5.63087200e-06  2.74976583e-05 -6.42650411e-03]\n [-2.77622828e-05 -6.74748522e-06  1.52182033e-02]\n [ 1.07623595e-02 -1.22519240e-02 -9.99730547e-01]]"
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.d: Normalized Eight-Point Algorithm\n\nOne thing we can do to improve the quality of the matrix estimate is to normalize the coordinates, so if they have different magnitudes, it doesn’t distort the estimation of F:\n\n**Set 1:**"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[[ 7.69564303e-07 -6.28660670e-06  1.04182564e-04]\n [-5.78773950e-06 -4.01132413e-07 -7.58583623e-03]\n [-1.01011620e-03  1.04176782e-02  1.72255185e-01]]"
+    },
+    {
+      "type": "text",
+      "md": "**Set 2:**"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[[-1.76258641e-07  2.93495132e-06 -1.82141740e-04]\n [ 4.23387000e-06  3.75025436e-07  8.18992840e-03]\n [ 2.75815126e-04 -9.94284870e-03 -2.94298661e-03]]"
+    },
+    {
+      "type": "text",
+      "md": "## Part 1.f: Distance to Epipolar Lines\n\nFor each second-image point, we compute the corresponding line in image 1 as $l=F^T x_2=(a,b,c)$. For its matched point $(u_1,v_1,1)$, we can evaluate $|a u_1+b v_1+c|/\\sqrt{a^2+b^2}$ and average these distances over all correspondences."
+    },
+    {
+      "type": "text",
+      "md": "### Set 1"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "Distance to lines in image 1 for LLS: 28.025662937518597\nDistance to lines in image 2 for LLS: 25.162875800024196\n\nDistance to lines in image 1 for normalized: 0.890572936202917\nDistance to lines in image 2 for normalized: 0.8286681346567916"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_1-3.png",
+      "alt": "",
+      "caption": "Non-normalized"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_2.png",
+      "alt": "",
+      "caption": "Normalized"
+    },
+    {
+      "type": "text",
+      "md": "### Set 2"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "Distance to lines in image 1 for LLS: 9.701438829452691\nDistance to lines in image 2 for LLS: 14.568227190528294\n\nDistance to lines in image 1 for normalized: 0.8894960616888684\nDistance to lines in image 2 for normalized: 0.8917172367782292"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_3.png",
+      "alt": "",
+      "caption": "Non-normalized"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_4.png",
+      "alt": "",
+      "caption": "Normalized"
+    },
+    {
+      "type": "text",
+      "md": "# Part 2: Matching Homographies for Image Rectification"
+    },
+    {
+      "type": "text",
+      "md": "## Part 2.d: Rectified Images\n\nAfter rectification, the epipolar lines are horizontal. A point's match can therefore be found by searching along a row rather than having to search across the entire other image:"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_5.png",
+      "alt": "",
+      "caption": "Rectified  views"
+    },
+    {
+      "type": "text",
+      "md": "# Part 3: The Factorization Method"
+    },
+    {
+      "type": "text",
+      "md": "## Part 3.b: Factorization\n\nWe stack the $u_1$, $v_1$, $u_2$, and $v_2$ coordinates from the two frames into a 4xN measurement matrix and subtract each row's mean to remove translation. After taking its SVD, we retain the first three singular values and split their square roots between the motion and structure factors."
+    },
+    {
+      "type": "text",
+      "md": "## Part 3.c: Comparison with Ground Truth"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_6.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "We see that the reconstruction captures the main arrangement of points, but their orientation is different from the ground truth. Note that we estimate two things together, a structure matrix S containing the 3D points, and a motion matrix M describing how those points appear in the images. Their product gives the centered image measurements $D=MS$. But we see that the images constrain only that final product, rather than each factor independently. For example, if we double every reconstructed coordinate and halve M, the product stays unchanged. We see then, the images can't tell us if the object is 1 unit wide or 2 units wide. Similarly, rotating the reconstructed object and applying the inverse rotation to the camera model leaves the projected points unchanged, so the recovered scale and orientation can differ from ground truth.\n\nBut even if we rotate and scale the points, we see that they don't quite match the ground truth. Note that because we make an affine reconstruction, the shape can still be stretched or sheared while fitting the image measurements. Additionally, perspective effects and errors in the matched points can also make the reconstruction look a little off."
+    },
+    {
+      "type": "text",
+      "md": "## Part 3.d: Singular Values"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[959.5852216  540.47613178 184.43174791  27.9151956]"
+    },
+    {
+      "type": "text",
+      "md": "We see that the fourth singular value is not zero because perspective effects and errors in the matched points (mentioned above) mean our data doesn't perfectly fit the model. Ideally, we would only get 3 nonzero singular values. Note that our centered measurement matrix is the product of a 4x3 motion matrix and a 3xN structure matrix, so its rank can't be any greater than three."
+    },
+    {
+      "type": "text",
+      "md": "## Part 3.e: Subset Comparison"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_7.png",
+      "alt": "",
+      "caption": ""
+    },
+    {
+      "type": "text",
+      "md": "With the subset, we see that it still captures the general arrangement of points, but some points appear too far forward or backward compared to the ground truth. Note that we now have fewer points, and they lie close to a single plane, so there is less information about how the shape extends into the third dimension. Small errors in the matched points can therefore have a bigger effect on the reconstructed shape."
+    },
+    {
+      "type": "text",
+      "md": "## Part 3.f: Subset Singular Values"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "code": "[264.54396508 210.06072009   7.21921783   5.12857709]"
+    },
+    {
+      "type": "text",
+      "md": "We see that all four singular values decrease, but the third has the biggest drop, going all the way from 184.431748 to 7.219218! This suggests that the subset provides much less information about the third dimension. Note that before it was obvious which component should be discarded (the 4th one), but now that the third value is so close to the fourth, it becomes unclear. Thus, measurement errors may have a larger effect on that part of the reconstruction. As a result, points may appear too far forward or backward relative to each other, distorting the shape."
+    },
+    {
+      "type": "text",
+      "md": "# Part 4: Triangulation in Structure From Motion"
+    },
+    {
+      "type": "text",
+      "md": "## Part 4.f: Reconstructed Statue"
+    },
+    {
+      "type": "image",
+      "src": "content/images/Figure_8.png",
+      "alt": "",
+      "caption": "The reconstructed statue"
+    },
+    {
+      "type": "text",
+      "md": "I think the main issue compared to the statue is that the house is much larger, and much more complex. The house would require more views over a longer camera path, which increases the risk for pose error and drift. Because of things like chimneys, jutting out areas, obstacles, etc., there would be much higher chance for occlusion, which could break correspondences. Note that above in the statue we can already see some weird/missing spots where the camera is only slightly occluded (e.g. by the nose), which is likely to get worse when measuring something larger like a house, where a large portion may be occluded at any given time. Also, because there are so many more views, and thus so many more points, it would be much more computationally heavy in order to calculate the structure."
+    }
+  ]
+}

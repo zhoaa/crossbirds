@@ -27,6 +27,14 @@
   ],
   "posts": [
     {
+      "slug": "syde-671-assignment-4",
+      "title": "SYDE 671 Assignment 4",
+      "date": "2026-11-17",
+      "bird": "coursework",
+      "summary": "Fundamental Matrices and Structure from Motion",
+      "cover": null
+    },
+    {
       "slug": "syde-671-assignment-3",
       "title": "SYDE 671 Assignment 3",
       "date": "2026-10-31",
